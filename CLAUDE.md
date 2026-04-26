@@ -73,7 +73,7 @@ Sistema autônomo que coleta, padroniza e serve vagas de múltiplas fontes em in
 | Coleta de dados — LinkedIn | Python 3.11 + `curl_cffi` (TLS impersonate Chrome) + `lxml` |
 | Banco de dados | Firebase Realtime Database (`my-orbit-prod`) |
 | Analytics | Google Analytics 4 (via Firebase) |
-| Automação | GitHub Actions (Gupy 03:42 BRT, LinkedIn 04:45 BRT) |
+| Automação | GitHub Actions (Gupy 03:42 BRT, LinkedIn DEV 04:45 BRT, LinkedIn ADV 12:00 BRT) |
 | Web | React + Vite + TypeScript |
 | Mobile | React Native + Expo (planejado) |
 | Deploy Web | Vercel ou Firebase Hosting |
@@ -85,21 +85,23 @@ Sistema autônomo que coleta, padroniza e serve vagas de múltiplas fontes em in
 ```
 GitHub Actions (workflows independentes)
         │
-        ├──► gupy.yml (03:42 BRT)        ──► main_gupy.py     ──► GupyScraper
-        │                                                          │
-        └──► linkedin.yml (04:45 BRT)    ──► main_linkedin.py ──► LinkedinScraper
-                                                                   │
-                                          scraper_runner.py ◄──────┤
-                                          (orquestração compartilhada)
-                                                   │
-                                                   ▼
-                                          Firebase Realtime DB
-                                          /vagas/dev/{gupy,linkedin}
-                                          /vagas/adv/{gupy,linkedin}
-                                                   │
-                                                   ▼
-                                              Web App (React)
-                                              Mobile App (planejado)
+        ├──► gupy.yml (03:42 BRT)              ──► main_gupy.py         ──► GupyScraper
+        │
+        ├──► linkedin-dev.yml (04:45 BRT)      ──► main_linkedin_dev.py ──► LinkedinScraper
+        │
+        └──► linkedin-adv.yml (12:00 BRT)      ──► main_linkedin_adv.py ──► LinkedinScraper
+                                                                              │
+                                                  scraper_runner.py ◄─────────┤
+                                                  (orquestração compartilhada)
+                                                           │
+                                                           ▼
+                                                  Firebase Realtime DB
+                                                  /vagas/dev/{gupy,linkedin}
+                                                  /vagas/adv/{gupy,linkedin}
+                                                           │
+                                                           ▼
+                                                      Web App (React)
+                                                      Mobile App (planejado)
 ```
 
 ### Padrões de Projeto Implementados
@@ -110,7 +112,7 @@ GitHub Actions (workflows independentes)
 - **Exponential Backoff + Jitter** — Resiliência contra rate limiting (HTTP 429)
 - **Hashing Determinístico** — `hashlib.md5(url)` gera IDs idempotentes por vaga
 
-### Anti-Detecção LinkedIn (11 camadas)
+### Anti-Detecção LinkedIn (12 camadas)
 1. **TLS Fingerprint** — `curl_cffi` com `impersonate="chrome"` replica handshake JA3/HTTP2 de Chrome real
 2. **Session Persistente** — mantém cookies entre requests
 3. **Warm-up 3 etapas** — Google → Homepage → /jobs/ antes de buscar
@@ -120,8 +122,9 @@ GitHub Actions (workflows independentes)
 7. **Cooldown Keywords** — pausa entre palavras-chave diferentes
 8. **Detecção Tríplice** — authwall + captcha + response size anomaly
 9. **Circuit Breaker** — 5 erros consecutivos → abort automático. Taxa de erro > 20% → pausa de recuperação de 120s. Threshold calibrado empiricamente: 10% era agressivo demais (gerava pausas desnecessárias em erros que se recuperavam sozinhos na próxima keyword)
-10. **Teto Global** — 2000 requests máximos por execução. Valor calibrado como margem de segurança contra bugs/loops, não como limitador de execução normal. Com 229 keywords × 3 modalidades × 2 páginas médias ≈ 1377 requests em execução saudável, 2000 dá folga confortável
+10. **Teto Global** — 2000 requests máximos por execução. Valor calibrado como margem de segurança contra bugs/loops, não como limitador de execução normal
 11. **Referer Chain** — cada request tem referer da página anterior
+12. **UTF-8 Forçado** — bytes do response decodificados explicitamente como UTF-8 antes de virar HTML, eliminando mojibake nos títulos/empresas com acentos (adicionada recentemente)
 
 ### Filtros LinkedIn Validados
 - `geoId=106057199` — força vagas brasileiras apenas
@@ -140,18 +143,28 @@ MyOrbita-Scraper/
 ├── .github/
 │   └── workflows/
 │       ├── gupy.yml                    # Scraper Gupy — 03:42 BRT
-│       └── linkedin.yml                # Scraper LinkedIn — 04:45 BRT
+│       ├── linkedin-dev.yml            # Scraper LinkedIn DEV — 04:45 BRT
+│       └── linkedin-adv.yml            # Scraper LinkedIn ADV — 12:00 BRT
 ├── myorbita-web/                       # Aplicação web React + Vite
+│   ├── src/
+│   │   ├── components/
+│   │   │   └── FiltroMultiSelect.tsx   # Dropdown multi-select via Portal
+│   │   ├── hooks/
+│   │   │   ├── useCacheVagas.ts        # Cache localStorage TTL 1h
+│   │   │   └── useFiltrosVagas.ts      # Filtros, busca, paginação, ordenação
+│   │   └── pages/
+│   │       ├── VagasDev.tsx
+│   │       └── VagasAdv.tsx
 │   └── .env                            # Vars Firebase Web (não versionado)
 ├── myorbita-app/                       # React Native + Expo (Sprint 8 — bloqueado)
 ├── queries/
 │   ├── tecnologia_gupy.json            # Keywords tecnologia → Gupy
-│   ├── tecnologia_linkedin.json        # Keywords tecnologia → LinkedIn
+│   ├── tecnologia_linkedin.json        # Keywords tecnologia → LinkedIn (com variações C#/.NET)
 │   ├── advogados_gupy.json             # Keywords direito → Gupy
 │   └── advogados_linkedin.json         # Keywords direito → LinkedIn
 ├── scrapers/
 │   ├── __init__.py
-│   ├── base_scraper.py                 # Contrato abstrato (Template Method)
+│   ├── base_scraper.py                 # Contrato abstrato + helper consertar_mojibake
 │   ├── gupy_scraper.py                 # Scraper Gupy (API)
 │   └── linkedin_scraper.py             # Scraper LinkedIn (HTML + curl_cffi)
 ├── secrets/
@@ -159,7 +172,8 @@ MyOrbita-Scraper/
 ├── .env                                # Vars backend (não versionado)
 ├── .gitignore
 ├── main_gupy.py                        # Entry point Gupy
-├── main_linkedin.py                    # Entry point LinkedIn
+├── main_linkedin_dev.py                # Entry point LinkedIn DEV
+├── main_linkedin_adv.py                # Entry point LinkedIn ADV
 ├── scraper_runner.py                   # Orquestração compartilhada (DRY)
 └── README.md
 ```
@@ -190,6 +204,7 @@ MyOrbita-Scraper/
 - `docs:` documentação
 - `ci:` pipeline e automação
 - `refactor:` refatoração sem mudança de comportamento
+- `perf:` melhoria de performance
 
 ---
 
@@ -257,13 +272,21 @@ VITE_FIREBASE_MEASUREMENT_ID=...
 - [x] FASE 5.7 — Atualizar `constants/routes.ts` com as 4 rotas
 - [x] FASE 5.8 — Badge de origem nos cards (Gupy azul claro / LinkedIn azul oficial)
 - [x] FASE 5.9 — Filtro por origem (toggle Todas / Gupy / LinkedIn)
+- [x] FASE 5.10 — Multi-seleção em filtros (modalidade, nível, estado, contrato, origem) via dropdown com checkboxes (adicionada recentemente)
+- [x] FASE 5.11 — Permissividade em campos sujeiráveis: vagas com "Não informado"/"Brasil" passam em qualquer filtro com indicador visual ⚠️ no card (adicionada recentemente)
 
-### 📋 A fazer — Sprint 6 (Qualidade)
+### ✅ Concluído — Sprint 6 (Qualidade)
 - [x] FASE 6.1 — Aplicar design system completo
 - [x] FASE 6.2 — Validar responsividade
 - [x] FASE 6.3 — Cache local no frontend (localStorage, TTL 1h) via `useCacheVagas` — isolado por rota, resiliente a erros, timestamp correto em hit parcial
 - [x] FASE 6.4 — Pull-to-refresh via `recarregar()` que invalida cache e re-fetcha do Firebase
 - [ ] FASE 6.5 — Testar em múltiplos navegadores (cross-browser) (Deixar para fase de testes automatizados)
+- [x] FASE 6.6 — Fix UTF-8: proteção contra mojibake em base_scraper, decodificação explícita de bytes em gupy/linkedin (adicionada recentemente)
+- [x] FASE 6.7 — Fix bug "Brasil" no campo state: `_parse_localizacao` detecta nome de país e joga para country (adicionada recentemente)
+- [x] FASE 6.8 — Fix z-index do dropdown via React Portal — escapa do stacking context do `backdrop-filter` (adicionada recentemente)
+- [x] FASE 6.9 — Split LinkedIn em 2 workflows (DEV/ADV) com crons distintos para evitar estouro do limite de 6h do GitHub Actions (adicionada recentemente)
+- [x] FASE 6.10 — Otimização de pausas anti-detecção LinkedIn: pausa intermediária 25s [20-30s] em vez de 45s, remoção da pausa redundante após última página (adicionada recentemente)
+- [x] FASE 6.11 — Expansão de keywords C#/.NET no JSON de queries para aumentar cobertura (adicionada recentemente)
 
 ### ✅ Concluído — Sprint 7 (Informativo)
 - Seção de links no footer da Home (abaixo dos cards) — cada item abre modal próprio
@@ -286,7 +309,6 @@ VITE_FIREBASE_MEASUREMENT_ID=...
 - [ ] FASE 7.6 — URL pública funcional + domínio (se aplicável)
 - [ ] FASE 7.7 — Monitoramento de cota do Firebase (alertas quando próximo do limite)
 
-
 ### 🚫 Bloqueado — Sprint 8 (Mobile)
 - [ ] FASE 8.1 — Ambiente Mobile (Configurar AVD + Expo Orbit)
 - [ ] FASE 8.2 — Versão Mobile React Native (adaptar web)
@@ -302,6 +324,19 @@ VITE_FIREBASE_MEASUREMENT_ID=...
 - [ ] FASE 10.3 — Análise de métricas via Google Analytics: reads/dia, usuários ativos, tempo médio de resposta, vagas mais clicadas
 - [ ] FASE 10.4 — Considerar migração para Firestore se Realtime DB limitar
 
+### 🔮 Futuro — Possíveis Melhorias (backlog)
+> Ideias levantadas mas não priorizadas. Avaliar pós-deploy.
+- Favoritar vagas (localStorage com ID das vagas)
+- Vagas similares no modal de detalhe
+- Badge "Nova" em vagas dos últimos 3 dias
+- Skeleton loader em vez de spinner
+- Compartilhar vaga via link curto
+- Página de empresas com contagem de vagas
+- PWA (instalável no celular)
+- Sentry para captura de erros em produção
+- Tags/skills detectadas automaticamente do título
+- Notificações push (alerta quando aparece keyword X)
+
 ---
 
 ## REGRAS DO PROJETO
@@ -312,7 +347,7 @@ VITE_FIREBASE_MEASUREMENT_ID=...
 4. **Firebase:** estrutura de dados usa ID determinístico MD5 como chave
 5. **Licença:** All Rights Reserved — uso comercial proibido sem autorização do autor
 6. **Repositório público** — portfólio técnico de Maicon Vitor (`MaiconVts/MyOrbita`)
-7. **Workflows isolados** — Gupy e LinkedIn rodam em workflows separados; falha em um não afeta o outro
+7. **Workflows isolados** — Gupy, LinkedIn DEV e LinkedIn ADV rodam em workflows separados; falha em um não afeta os outros
 
 ---
 
@@ -333,6 +368,16 @@ VITE_FIREBASE_MEASUREMENT_ID=...
 ### Cores de Badge por Origem
 - Gupy: `#4FC3F7` (azul claro)
 - LinkedIn: `#0077B5` (azul escuro oficial LinkedIn)
+
+### Padrão "Campo Ausente" nos Cards (adicionada recentemente)
+
+Vagas com campos sujos (`"Não informado"`, `"Brasil"` no state, vazio) renderizam o badge/texto com:
+- Cor cinza neutra `#6b7280`
+- Itálico
+- Ícone `<AlertCircle>` à esquerda
+- Texto explicativo: "Modalidade não informada", "Local não informado", "Contrato não informado"
+
+Filtros aplicam permissividade: vaga com campo sujo passa em qualquer seleção daquele filtro (exceto PCD e origem). UX: "Card grande mas informativo é melhor que card bonito falso".
 
 ---
 
@@ -357,3 +402,26 @@ Acumular tudo em memória e salvar só no fim é fatal para execuções longas (
 ### Cache por Rota vs Cache por Origem
 
 Cache no frontend isolado **por rota Firebase**, nunca por campo `origem`. Duas rotas diferentes (`/vagas/dev/gupy` e `/vagas/adv/gupy`) compartilham o mesmo campo `origem = "Gupy"` — reagrupar pela origem contamina o cache entre categorias.
+
+### Hard Limit do GitHub Actions e Split de Workflows (adicionada recentemente)
+
+Runner hosted do GitHub Actions tem hard limit de 6h por job. Não é configurável. DEV + ADV no mesmo workflow LinkedIn não cabia (~7h45min total). Solução: split em 2 workflows (`linkedin-dev.yml` 04:45 BRT, `linkedin-adv.yml` 12:00 BRT). Gap de 7h+ entre crons garante que mesmo se DEV estourar tempo, ADV roda independente.
+
+### Pausa Anti-Detecção: Posição Importa (adicionada recentemente)
+
+Pausa longa entre páginas da MESMA keyword (paginação) protege contra detecção. Pausa longa após a ÚLTIMA página é redundante: o próximo evento é mudança de keyword (URL nova, nova busca), que já é naturalmente um "momento de pausa" de transição. Cooldown de 8s entre keywords cobre isso. Eliminar a pausa final economiza ~45s × N combinações sem perda de proteção real.
+
+### Mojibake UTF-8 e Encoding em APIs (adicionada recentemente)
+
+`requests.json()` decodifica usando charset do `Content-Type`. Se servidor não enviar charset, assume Latin-1 → bytes UTF-8 viram mojibake (`"Estágio"` → `"EstÃ¡gio"`). Solução em camadas:
+1. Forçar `response.encoding = 'utf-8'` em base
+2. Decodificar bytes manualmente via `response.content.decode('utf-8')` antes de `json.loads()`
+3. Helper `consertar_mojibake()` em `padronizar_vaga` como rede de proteção que reverte o dano via `encode('latin-1').decode('utf-8')`
+
+### Stacking Context com backdrop-filter (adicionada recentemente)
+
+`backdrop-filter` cria um stacking context isolado — nenhum z-index dentro do elemento sobe acima do contexto. Mesmo com `z-index: 9999`, o elemento fica preso. Solução: renderizar via React Portal direto no `document.body` (fora de qualquer contexto) e calcular posição via `getBoundingClientRect()`. Atualizar posição em scroll/resize para acompanhar o âncora.
+
+### Filtro Permissivo: Falso-Positivo > Falso-Negativo (adicionada recentemente)
+
+Filtro rigoroso por nível ("junior", "estagio") via regex no título perde 80% das vagas reais — LinkedIn raramente traz nível explícito no título. Solução: vaga sem nível detectável passa em qualquer filtro de nível ativo. Mesma lógica para state/modalidade/contrato sujos ("Não informado", "Brasil"). UX: card mostra ⚠️ "Campo não informado" para deixar claro que aquela vaga entrou via fallback. Honesto > escondido.
