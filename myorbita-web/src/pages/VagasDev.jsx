@@ -13,11 +13,10 @@ import {
   RefreshCw,
   AlertCircle,
 } from "lucide-react";
-import type { IVaga } from "../types/IVaga";
 import { ROUTES } from "../constants/routes";
 import VagaDetalhe from "../components/VagaDetalhe";
 import PageTransition from "../components/PageTransition";
-import FiltroMultiSelect, { type OpcaoMultiSelect } from "../components/FiltroMultiSelect";
+import FiltroMultiSelect from "../components/FiltroMultiSelect";
 import { useFiltrosVagas } from "../hooks/useFiltrosVagas";
 import { useCacheVagas } from "../hooks/useCacheVagas";
 
@@ -29,7 +28,7 @@ import { useCacheVagas } from "../hooks/useCacheVagas";
 // =====================================================================
 const VALORES_AUSENTES = new Set(["", "Não informado"]);
 
-const estaAusente = (valor?: string): boolean => {
+const estaAusente = (valor) => {
   if (!valor) return true;
   return VALORES_AUSENTES.has(valor.trim());
 };
@@ -37,13 +36,13 @@ const estaAusente = (valor?: string): boolean => {
 // =====================================================================
 // Cores (mantidas como no original)
 // =====================================================================
-const modalidadeCor: Record<string, string> = {
+const modalidadeCor = {
   Remoto: "#4FC3F7",
   Híbrido: "#FFB703",
   Presencial: "#A0AEC0",
 };
 
-const contratoCor: Record<string, string> = {
+const contratoCor = {
   CLT: "#4FC3F7",
   PJ: "#FFB703",
   Estágio: "#A78BFA",
@@ -54,7 +53,7 @@ const contratoCor: Record<string, string> = {
   "Banco de Talentos": "#94A3B8",
 };
 
-const origemCor: Record<string, string> = {
+const origemCor = {
   Gupy: "#4FC3F7",
   LinkedIn: "#0077B5",
 };
@@ -65,14 +64,14 @@ const COR_AUSENTE = "#6b7280";
 // =====================================================================
 // Opções estáticas dos dropdowns
 // =====================================================================
-const OPCOES_NIVEL: OpcaoMultiSelect[] = [
+const OPCOES_NIVEL = [
   { value: "estagio", label: "Estágio" },
   { value: "junior", label: "Júnior" },
   { value: "pleno", label: "Pleno" },
   { value: "senior", label: "Sênior" },
 ];
 
-const OPCOES_MODALIDADE: OpcaoMultiSelect[] = [
+const OPCOES_MODALIDADE = [
   { value: "Remoto", label: "Remoto", cor: modalidadeCor.Remoto },
   { value: "Híbrido", label: "Híbrido", cor: modalidadeCor.Híbrido },
   { value: "Presencial", label: "Presencial", cor: modalidadeCor.Presencial },
@@ -86,7 +85,7 @@ const ROTAS_DEV = [
 // =====================================================================
 // Helpers de formatação
 // =====================================================================
-function formatarData(iso: string): string {
+function formatarData(iso) {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleDateString("pt-BR");
@@ -95,7 +94,7 @@ function formatarData(iso: string): string {
   }
 }
 
-function corPrazo(prazoIso: string): { cor: string; texto: string } {
+function corPrazo(prazoIso) {
   const hoje = new Date();
   const prazo = new Date(prazoIso);
   const dias = Math.ceil((prazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
@@ -104,7 +103,7 @@ function corPrazo(prazoIso: string): { cor: string; texto: string } {
   return { cor: "#34D399", texto: `até ${formatarData(prazoIso)}` };
 }
 
-function formatarTempoRelativo(timestamp: number | null): string {
+function formatarTempoRelativo(timestamp) {
   if (!timestamp) return "";
   const diffMs = Date.now() - timestamp;
   const diffMin = Math.floor(diffMs / 60000);
@@ -121,7 +120,7 @@ function formatarTempoRelativo(timestamp: number | null): string {
  * Formata texto de localização considerando campos potencialmente ausentes.
  * Sempre retorna { texto, ausente } — caller decide renderização.
  */
-function formatarLocalizacao(city?: string, state?: string): { texto: string; ausente: boolean } {
+function formatarLocalizacao(city, state) {
   const cityValido = !estaAusente(city);
   const stateValido = !estaAusente(state);
 
@@ -132,12 +131,12 @@ function formatarLocalizacao(city?: string, state?: string): { texto: string; au
     return { texto: `${city}, ${state}`, ausente: false };
   }
   if (cityValido) {
-    return { texto: city!, ausente: false };
+    return { texto: city, ausente: false };
   }
-  return { texto: state!, ausente: false };
+  return { texto: state, ausente: false };
 }
 
-const selectBase: React.CSSProperties = {
+const selectBase = {
   background: "rgba(255,255,255,0.05)",
   border: "1px solid rgba(255,255,255,0.09)",
   borderRadius: "10px",
@@ -147,7 +146,7 @@ const selectBase: React.CSSProperties = {
 // Componente principal
 // =====================================================================
 export default function VagasDev() {
-  const [vagaSelecionada, setVagaSelecionada] = useState<IVaga | null>(null);
+  const [vagaSelecionada, setVagaSelecionada] = useState(null);
 
   const { vagas: vagasRaw, carregando, atualizando, atualizadoEm, recarregar } = useCacheVagas(ROTAS_DEV);
 
@@ -168,17 +167,17 @@ export default function VagasDev() {
     filtrosAtivos, totalFiltrosAtivos, limparFiltros,
   } = useFiltrosVagas(vagasRaw);
 
-  const opcoesEstado: OpcaoMultiSelect[] = estadosDisponiveis.map((uf) => ({
+  const opcoesEstado = estadosDisponiveis.map((uf) => ({
     value: uf,
     label: uf,
   }));
 
-  const opcoesContrato: OpcaoMultiSelect[] = contratosDisponiveis.map((tipo) => ({
+  const opcoesContrato = contratosDisponiveis.map((tipo) => ({
     value: tipo,
     label: tipo,
   }));
 
-  const toggleOrigem = (origem: string) => {
+  const toggleOrigem = (origem) => {
     if (filtrosOrigem.includes(origem)) {
       setFiltrosOrigem(filtrosOrigem.filter((o) => o !== origem));
     } else {
@@ -209,10 +208,17 @@ export default function VagasDev() {
           width: 100%;
           min-width: 0;
         }
+        .linha-busca-modalidade {
+          width: 200px;
+          flex-shrink: 0;
+        }
         @media (max-width: 900px) {
           .linha-busca {
             flex-direction: column;
             align-items: stretch;
+          }
+          .linha-busca-modalidade {
+            width: 100%;
           }
         }
 
@@ -346,7 +352,7 @@ export default function VagasDev() {
                 />
               </div>
 
-              <div style={{ width: "200px", flexShrink: 0 }}>
+              <div className="linha-busca-modalidade">
                 <FiltroMultiSelect
                   placeholder="Modalidade"
                   opcoes={OPCOES_MODALIDADE}
@@ -357,7 +363,7 @@ export default function VagasDev() {
 
               <select
                 value={ordenacao}
-                onChange={(e) => setOrdenacao(e.target.value as "recente" | "antiga")}
+                onChange={(e) => setOrdenacao(e.target.value)}
                 className="h-[44px] px-4 text-[13px] text-white outline-none cursor-pointer shrink-0"
                 style={{ ...selectBase }}
               >
