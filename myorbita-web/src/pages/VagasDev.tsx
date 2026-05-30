@@ -27,7 +27,7 @@ import { useCacheVagas } from "../hooks/useCacheVagas";
 // (hook + VagasDev + VagasAdv). É 1 linha em cada — preferível ao acoplamento
 // via export/import que pode quebrar build em refactor.
 // =====================================================================
-const VALORES_AUSENTES = new Set(["", "Não informado", "Brasil"]);
+const VALORES_AUSENTES = new Set(["", "Não informado"]);
 
 const estaAusente = (valor?: string): boolean => {
   if (!valor) return true;
