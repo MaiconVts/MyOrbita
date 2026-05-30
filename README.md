@@ -15,7 +15,7 @@ Agregador de vagas profissionais que reúne oportunidades do Gupy e LinkedIn em 
 ![Firebase](https://img.shields.io/badge/Firebase-Realtime_DB-FFCA28?logo=firebase&logoColor=black)
 ![License](https://img.shields.io/badge/Licença-All_Rights_Reserved-red)
 
-**[🔗 Acessar o projeto]** ← link após deploy
+**[🔗 Acessar o projeto](https://my-orbita.vercel.app/)**
 
 ---
 
