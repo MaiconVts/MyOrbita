@@ -1,8 +1,4 @@
-interface IProps {
-  onClose: () => void;
-}
-
-export default function TermosDeUso({ onClose }: IProps) {
+export default function TermosDeUso({ onClose }) {
   return (
     <div
       style={{
@@ -124,7 +120,7 @@ export default function TermosDeUso({ onClose }: IProps) {
   );
 }
 
-function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Secao({ titulo, children }) {
   return (
     <div>
       <p style={{ fontSize: '11px', fontWeight: 600, color: '#4a4a6a', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '8px' }}>

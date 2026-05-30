@@ -1,13 +1,8 @@
 import { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import type { ReactNode } from 'react';
 import { useTransitionStore } from '../stores/transitionStore';
 
-interface Props {
-  children: ReactNode;
-}
-
-export default function PageTransition({ children }: Props) {
+export default function PageTransition({ children }) {
   const { startTransition, completeTransition } = useTransitionStore();
 
   // Dispara warp na entrada de cada página

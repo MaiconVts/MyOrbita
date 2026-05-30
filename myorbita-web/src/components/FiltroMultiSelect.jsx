@@ -3,24 +3,6 @@ import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
 
 /**
- * Opção individual do dropdown.
- */
-export interface OpcaoMultiSelect {
-  value: string;
-  label: string;
-  cor?: string;
-}
-
-interface FiltroMultiSelectProps {
-  icone?: React.ReactNode;
-  placeholder: string;
-  opcoes: OpcaoMultiSelect[];
-  selecionados: string[];
-  onChange: (novosValores: string[]) => void;
-  minWidth?: string;
-}
-
-/**
  * Dropdown multi-select com checkboxes.
  *
  * Por que usa Portal?
@@ -41,12 +23,12 @@ export default function FiltroMultiSelect({
   selecionados,
   onChange,
   minWidth = "0",
-}: FiltroMultiSelectProps) {
+}) {
   const [aberto, setAberto] = useState(false);
   const [posicaoPainel, setPosicaoPainel] = useState({ top: 0, left: 0, width: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
-  const botaoRef = useRef<HTMLButtonElement>(null);
-  const painelRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef(null);
+  const botaoRef = useRef(null);
+  const painelRef = useRef(null);
 
   // --- Calcula posição do painel baseado no botão âncora ---
   // Necessário porque o painel está fora da árvore (Portal) e precisa saber
@@ -83,8 +65,8 @@ export default function FiltroMultiSelect({
   useEffect(() => {
     if (!aberto) return;
 
-    const handleClickFora = (e: MouseEvent) => {
-      const target = e.target as Node;
+    const handleClickFora = (e) => {
+      const target = e.target;
       const dentroBotao = containerRef.current?.contains(target);
       const dentroPainel = painelRef.current?.contains(target);
       if (!dentroBotao && !dentroPainel) {
@@ -92,7 +74,7 @@ export default function FiltroMultiSelect({
       }
     };
 
-    const handleEsc = (e: KeyboardEvent) => {
+    const handleEsc = (e) => {
       if (e.key === "Escape") setAberto(false);
     };
 
@@ -104,7 +86,7 @@ export default function FiltroMultiSelect({
     };
   }, [aberto]);
 
-  const toggleOpcao = (value: string) => {
+  const toggleOpcao = (value) => {
     if (selecionados.includes(value)) {
       onChange(selecionados.filter((v) => v !== value));
     } else {
@@ -236,7 +218,7 @@ export default function FiltroMultiSelect({
         onClick={() => setAberto((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={aberto}
-        className="w-full h-[44px] flex items-center text-[13px] outline-none cursor-pointer transition-all"
+        className="w-full min-w-0 h-[44px] flex items-center text-[13px] outline-none cursor-pointer transition-all"
         style={{
           background: "rgba(255,255,255,0.05)",
           border: temSelecao

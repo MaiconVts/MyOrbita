@@ -1,8 +1,4 @@
-interface IProps {
-  onClose: () => void;
-}
-
-export default function Sobre({ onClose }: IProps) {
+export default function Sobre({ onClose }) {
   return (
     <div
       style={{
@@ -99,7 +95,7 @@ export default function Sobre({ onClose }: IProps) {
   );
 }
 
-function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Secao({ titulo, children }) {
   return (
     <div>
       <p style={{ fontSize: '11px', fontWeight: 600, color: '#4a4a6a', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '8px' }}>
@@ -112,7 +108,7 @@ function Secao({ titulo, children }: { titulo: string; children: React.ReactNode
   );
 }
 
-function LinhaStack({ label, value }: { label: string; value: string }) {
+function LinhaStack({ label, value }) {
   return (
     <span style={{ display: 'block', marginBottom: '6px' }}>
       <span style={{ color: '#ffffff', fontWeight: 600 }}>{label}:</span>{' '}

@@ -1,8 +1,4 @@
-interface IProps {
-  onClose: () => void;
-}
-
-export default function ComoUsar({ onClose }: IProps) {
+export default function ComoUsar({ onClose }) {
   return (
     <div
       style={{
@@ -95,7 +91,7 @@ export default function ComoUsar({ onClose }: IProps) {
   );
 }
 
-function Passo({ numero, titulo, children }: { numero: string; titulo: string; children: React.ReactNode }) {
+function Passo({ numero, titulo, children }) {
   return (
     <div style={{ display: 'flex', gap: '16px' }}>
       <span style={{

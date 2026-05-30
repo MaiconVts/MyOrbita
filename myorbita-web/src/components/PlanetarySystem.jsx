@@ -8,11 +8,10 @@ import { useTransitionStore } from '../stores/transitionStore';
 // Each layer is a separate <canvas> — only layers that change are redrawn
 
 export default function PlanetarySystem() {
-  const warpRef    = useRef<HTMLCanvasElement>(null);
-  const staticRef  = useRef<HTMLCanvasElement>(null);
-  const slowRef    = useRef<HTMLCanvasElement>(null);
-  const animRef    = useRef<number>(0);
-  const slowRef2   = useRef<number>(0); // frame counter for slow layer
+  const warpRef    = useRef(null);
+  const staticRef  = useRef(null);
+  const slowRef    = useRef(null);
+  const animRef    = useRef(0);
 
   useEffect(() => {
     const warpCanvas   = warpRef.current;
@@ -20,9 +19,9 @@ export default function PlanetarySystem() {
     const slowCanvas   = slowRef.current;
     if (!warpCanvas || !staticCanvas || !slowCanvas) return;
 
-    const warpCtx   = warpCanvas.getContext('2d')!;
-    const staticCtx = staticCanvas.getContext('2d')!;
-    const slowCtx   = slowCanvas.getContext('2d')!;
+    const warpCtx   = warpCanvas.getContext('2d');
+    const staticCtx = staticCanvas.getContext('2d');
+    const slowCtx   = slowCanvas.getContext('2d');
 
     // DPR capped at 2 for performance
     const DPR = Math.min(window.devicePixelRatio || 1, 2);
@@ -115,7 +114,7 @@ export default function PlanetarySystem() {
     // ─── SLOW LAYER DATA ───────────────────────────────────────────────────
     const STAR_COLORS = ['#FFFFFF','#B4FFFA','#FFF46E','#E081FF','#F89EFF','#4FC3F7'];
     // Pre-group stars by color for batch rendering
-    const starsByColor: Record<string, {x:number,y:number,r:number,opacity:number,speed:number,dir:number}[]> = {};
+    const starsByColor = {};
     STAR_COLORS.forEach(c => { starsByColor[c] = []; });
     for (let i = 0; i < 250; i++) {
       const color = STAR_COLORS[Math.floor(Math.random() * STAR_COLORS.length)];
@@ -136,11 +135,7 @@ export default function PlanetarySystem() {
       speed: Math.random()*0.00007+0.00003,
     }));
 
-    const drawPlanet = (
-      ctx: CanvasRenderingContext2D,
-      x:number, y:number, radius:number,
-      center:string, highlight:string, shadow:string, glow:string, axis:number
-    ) => {
+    const drawPlanet = (ctx, x, y, radius, center, highlight, shadow, glow, axis) => {
       const g0 = ctx.createRadialGradient(x,y,radius*0.8,x,y,radius*2.0);
       g0.addColorStop(0, glow); g0.addColorStop(1,'rgba(0,0,0,0)');
       ctx.beginPath(); ctx.arc(x,y,radius*2.0,0,Math.PI*2);
@@ -163,7 +158,7 @@ export default function PlanetarySystem() {
       ctx.restore();
     };
 
-    const drawRing = (ctx:CanvasRenderingContext2D, x:number, y:number, r:number, tilt:number, front:boolean) => {
+    const drawRing = (ctx, x, y, r, tilt, front) => {
       ctx.save(); ctx.translate(x,y); ctx.rotate(tilt); ctx.scale(1,0.22);
       ctx.beginPath();
       ctx.arc(0,0,r*1.8, front?0:Math.PI, front?Math.PI:Math.PI*2);
@@ -172,7 +167,7 @@ export default function PlanetarySystem() {
       ctx.restore();
     };
 
-    const drawGalaxy = (ctx:CanvasRenderingContext2D, cx:number, cy:number, r:number, angle:number) => {
+    const drawGalaxy = (ctx, cx, cy, r, angle) => {
       ctx.save(); ctx.translate(cx,cy); ctx.rotate(angle);
       const cg = ctx.createRadialGradient(0,0,0,0,0,r*0.3);
       cg.addColorStop(0,'rgba(255,240,200,0.2)');
@@ -192,7 +187,7 @@ export default function PlanetarySystem() {
       ctx.restore();
     };
 
-    const drawBlackHole = (ctx:CanvasRenderingContext2D, cx:number, cy:number, r:number, elapsed:number) => {
+    const drawBlackHole = (ctx, cx, cy, r, elapsed) => {
       const diskAngle = elapsed*0.4;
       const pulse = 1 + Math.sin(elapsed*1.2)*0.07;
       ctx.save(); ctx.translate(cx,cy); ctx.rotate(diskAngle); ctx.scale(1, 0.28*pulse);
@@ -232,7 +227,7 @@ export default function PlanetarySystem() {
     const startTime = performance.now();
     let frameCount = 0;
 
-    const drawSlowLayer = (elapsed: number) => {
+    const drawSlowLayer = (elapsed) => {
       const w = window.innerWidth;
       const h = window.innerHeight;
       slowCtx.clearRect(0, 0, w, h);
@@ -276,7 +271,7 @@ export default function PlanetarySystem() {
       slowCtx.globalAlpha = 1;
 
       // 7 Planets
-      const p = (t:number) => (elapsed/t)*Math.PI*2;
+      const p = (t) => (elapsed/t)*Math.PI*2;
       const e = elapsed;
 
       const p1x = w*0.14+Math.cos(p(25))*65, p1y = h*0.5+Math.sin(p(25))*22;
@@ -305,7 +300,7 @@ export default function PlanetarySystem() {
       drawRing(slowCtx,p7x,p7y,22,-0.25,true);
     };
 
-    const drawWarpLayer = (elapsed: number, speed: number) => {
+    const drawWarpLayer = (speed) => {
       const w = window.innerWidth;
       const h = window.innerHeight;
       const cx = w/2, cy = h/2;
@@ -347,7 +342,7 @@ export default function PlanetarySystem() {
       currentSpeed += (targetSpeed - currentSpeed) * 0.08; // lerp
 
       // Warp layer — every frame
-      drawWarpLayer(elapsed, currentSpeed);
+      drawWarpLayer(currentSpeed);
 
       // Slow layer — every 3 frames (~20fps) sufficient for stars+planets
       if (frameCount % 3 === 0) {
@@ -367,7 +362,7 @@ export default function PlanetarySystem() {
     };
   }, []);
 
-  const canvasStyle: React.CSSProperties = {
+  const canvasStyle = {
     position: 'fixed', top: 0, left: 0,
     width: '100vw', height: '100vh',
     pointerEvents: 'none',

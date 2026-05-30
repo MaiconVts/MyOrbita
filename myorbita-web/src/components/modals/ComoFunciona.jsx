@@ -1,8 +1,4 @@
-interface IProps {
-  onClose: () => void;
-}
-
-export default function ComoFunciona({ onClose }: IProps) {
+export default function ComoFunciona({ onClose }) {
   return (
     <div
       style={{
@@ -120,12 +116,7 @@ export default function ComoFunciona({ onClose }: IProps) {
   );
 }
 
-function Etapa({ icone, titulo, children, ultima }: {
-  icone: string;
-  titulo: string;
-  children: React.ReactNode;
-  ultima: boolean;
-}) {
+function Etapa({ icone, titulo, children, ultima }) {
   return (
     <div style={{ display: 'flex', gap: '16px', paddingBottom: ultima ? '0' : '20px' }}>
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '32px' }}>
@@ -146,7 +137,7 @@ function Etapa({ icone, titulo, children, ultima }: {
   );
 }
 
-function HorarioItem({ plataforma, horario, cor }: { plataforma: string; horario: string; cor: string }) {
+function HorarioItem({ plataforma, horario, cor }) {
   return (
     <div>
       <span style={{ fontSize: '11px', color: '#4a4a6a' }}>{plataforma}</span>

@@ -1,12 +1,6 @@
 import { MapPin, Briefcase, Accessibility, Clock } from 'lucide-react';
-import type { IVaga } from '../types/IVaga';
 
-interface IVagaDetalheProps {
-  vaga: IVaga;
-  onClose: () => void;
-}
-
-function formatarData(iso: string): string {
+function formatarData(iso) {
   if (!iso) return '—';
   try { return new Date(iso).toLocaleDateString('pt-BR'); }
   catch { return iso; }
@@ -15,7 +9,7 @@ function formatarData(iso: string): string {
 /**
  * Verifica se um campo opcional tem valor útil (não nulo, não vazio, não "Não informado").
  */
-function campoValido(valor?: string | boolean): boolean {
+function campoValido(valor) {
   if (valor === undefined || valor === null) return false;
   if (typeof valor === 'boolean') return true;
   return valor.trim() !== '' && valor !== 'Não informado';
@@ -24,7 +18,7 @@ function campoValido(valor?: string | boolean): boolean {
 /**
  * Calcula o status do prazo e retorna cor + texto adequados.
  */
-function statusPrazo(prazo: string): { cor: string; texto: string } {
+function statusPrazo(prazo) {
   const hoje = new Date();
   const dataPrazo = new Date(prazo);
   const diasRestantes = Math.ceil((dataPrazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
@@ -34,13 +28,13 @@ function statusPrazo(prazo: string): { cor: string; texto: string } {
   return { cor: '#34D399', texto: formatarData(prazo) };
 }
 
-const modalidadeCor: Record<string, string> = {
+const modalidadeCor = {
   Remoto: '#4FC3F7',
   Híbrido: '#FFB703',
   Presencial: '#FFFFFF',
 };
 
-const contratoCor: Record<string, string> = {
+const contratoCor = {
   CLT: '#4FC3F7',
   PJ: '#FFB703',
   Estágio: '#A78BFA',
@@ -51,7 +45,7 @@ const contratoCor: Record<string, string> = {
   'Banco de Talentos': '#94A3B8',
 };
 
-export default function VagaDetalhe({ vaga, onClose }: IVagaDetalheProps) {
+export default function VagaDetalhe({ vaga, onClose }) {
   const cor = modalidadeCor[vaga.modalidade] ?? '#FFFFFF';
 
   // Monta localização legível
@@ -59,12 +53,12 @@ export default function VagaDetalhe({ vaga, onClose }: IVagaDetalheProps) {
   const temEstado = campoValido(vaga.state);
   const localizacao = temCidade && temEstado
     ? `${vaga.city}, ${vaga.state}`
-    : temCidade ? vaga.city!
-    : temEstado ? vaga.state!
+    : temCidade ? vaga.city
+    : temEstado ? vaga.state
     : null;
 
   // Status do prazo
-  const prazo = campoValido(vaga.prazo_inscricao) ? statusPrazo(vaga.prazo_inscricao!) : null;
+  const prazo = campoValido(vaga.prazo_inscricao) ? statusPrazo(vaga.prazo_inscricao) : null;
 
   // Campos estruturados para o grid de informações
   const campos = [
@@ -168,9 +162,9 @@ export default function VagaDetalhe({ vaga, onClose }: IVagaDetalheProps) {
             <span style={{
               display: 'flex', alignItems: 'center', gap: '5px',
               fontSize: '12px', fontWeight: 600,
-              color: contratoCor[vaga.tipo_contrato!] ?? '#94A3B8',
-              background: `${contratoCor[vaga.tipo_contrato!] ?? '#94A3B8'}15`,
-              border: `1px solid ${contratoCor[vaga.tipo_contrato!] ?? '#94A3B8'}30`,
+              color: contratoCor[vaga.tipo_contrato] ?? '#94A3B8',
+              background: `${contratoCor[vaga.tipo_contrato] ?? '#94A3B8'}15`,
+              border: `1px solid ${contratoCor[vaga.tipo_contrato] ?? '#94A3B8'}30`,
               borderRadius: '8px', padding: '6px 12px',
             }}>
               <Briefcase size={12} />
@@ -223,8 +217,8 @@ export default function VagaDetalhe({ vaga, onClose }: IVagaDetalheProps) {
             fontFamily: "'Space Grotesk', sans-serif",
             transition: 'background 0.2s',
           }}
-          onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = '#4FC3F7'; }}
-          onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = '#FFB703'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = '#4FC3F7'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = '#FFB703'; }}
         >
           Ver Vaga Completa →
         </a>
