@@ -1,12 +1,11 @@
 import { ref, get } from "firebase/database";
 import { database } from "./firebase";
-import type { IVaga } from "../types/IVaga";
 
 /**
  * Busca vagas de uma única rota do Firebase Realtime Database.
  * Retorna array vazio se a rota não existir ou estiver vazia.
  */
-const buscarRota = async (rota: string): Promise<IVaga[]> => {
+const buscarRota = async (rota) => {
     const referencia = ref(database, rota);
     const snapshot = await get(referencia);
     const dados = snapshot.val();
@@ -23,7 +22,7 @@ const buscarRota = async (rota: string): Promise<IVaga[]> => {
  * @param rotas Array de caminhos do Firebase (ex: ROUTES.FIREBASE_VAGAS_DEV_GUPY)
  * @returns Array único com todas as vagas das rotas que responderam
  */
-export const getVagas = async (rotas: string[]): Promise<IVaga[]> => {
+export const getVagas = async (rotas) => {
     const resultados = await Promise.allSettled(rotas.map(buscarRota));
 
     return resultados.flatMap((resultado, indice) => {

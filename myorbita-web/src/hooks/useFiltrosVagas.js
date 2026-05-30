@@ -1,5 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
-import type { IVaga } from "../types/IVaga";
+﻿import { useState, useMemo, useEffect } from "react";
 
 /**
  * Sentinelas de "valor ausente" usados pelo scraper quando não consegue extrair
@@ -20,7 +19,7 @@ const VALORES_AUSENTES = new Set(["", "Não informado", "Brasil"]);
  * Função utilitária local — não exportada para evitar acoplamento entre módulos.
  * VagasDev e VagasAdv têm a sua própria cópia para detecção visual no card.
  */
-const estaAusente = (valor?: string): boolean => {
+const estaAusente = (valor) => {
   if (!valor) return true;
   return VALORES_AUSENTES.has(valor.trim());
 };
@@ -29,7 +28,7 @@ const estaAusente = (valor?: string): boolean => {
  * Normaliza texto removendo acentos, convertendo para minúsculas e removendo espaços extras.
  * Usado para comparações de busca case/accent-insensitive.
  */
-const normalizarTexto = (texto: string): string => {
+const normalizarTexto = (texto) => {
   if (!texto) return "";
   return texto
     .normalize("NFD")
@@ -43,8 +42,8 @@ const normalizarTexto = (texto: string): string => {
  * Retorna string vazia se o campo estiver ausente — evita que "Não informado"
  * polua a busca textual (usuário que digitasse "informado" pegava vagas sujas).
  */
-const limparParaBusca = (valor?: string): string => {
-  return estaAusente(valor) ? "" : valor!;
+const limparParaBusca = (valor) => {
+  return estaAusente(valor) ? "" : valor;
 };
 
 /**
@@ -52,7 +51,7 @@ const limparParaBusca = (valor?: string): string => {
  * Word boundaries (\b) evitam matches parciais.
  * Se o título não bate em NENHUMA, a vaga é "nível indefinido" e passa em qualquer filtro.
  */
-const REGEX_NIVEL: Record<string, RegExp> = {
+const REGEX_NIVEL = {
   estagio: /\b(estagio|intern|aprendiz|trainee)\b/,
   junior: /\b(junior|jr)\b/,
   pleno: /\b(pleno|mid|middle)\b/,
@@ -63,35 +62,26 @@ const REGEX_NIVEL: Record<string, RegExp> = {
  * Detecta se o título menciona QUALQUER nível.
  * Vagas sem nível explícito aparecem em qualquer filtro de nível ativo.
  */
-const tituloMencionaAlgumNivel = (tituloNormalizado: string): boolean => {
+const tituloMencionaAlgumNivel = (tituloNormalizado) => {
   return Object.values(REGEX_NIVEL).some((regex) =>
     regex.test(tituloNormalizado),
   );
 };
 
-/**
- * Descreve cada filtro ativo individualmente.
- * Cada item de array de filtro multi-select vira UM chip independente.
- */
-export type FiltroAtivo = {
-  nome: string;
-  limpar: () => void;
-};
-
-export function useFiltrosVagas(vagasIniciais: IVaga[]) {
+export function useFiltrosVagas(vagasIniciais) {
   // --- Estados dos filtros ---
   const [busca, setBusca] = useState("");
-  const [ordenacao, setOrdenacao] = useState<"recente" | "antiga">("recente");
+  const [ordenacao, setOrdenacao] = useState("recente");
 
   // Multi-select: cada array representa opções ativas. Array vazio = sem filtro.
-  const [filtrosModalidade, setFiltrosModalidade] = useState<string[]>([]);
-  const [filtrosNivel, setFiltrosNivel] = useState<string[]>([]);
-  const [filtrosEstado, setFiltrosEstado] = useState<string[]>([]);
-  const [filtrosContrato, setFiltrosContrato] = useState<string[]>([]);
-  const [filtrosOrigem, setFiltrosOrigem] = useState<string[]>([]);
+  const [filtrosModalidade, setFiltrosModalidade] = useState([]);
+  const [filtrosNivel, setFiltrosNivel] = useState([]);
+  const [filtrosEstado, setFiltrosEstado] = useState([]);
+  const [filtrosContrato, setFiltrosContrato] = useState([]);
+  const [filtrosOrigem, setFiltrosOrigem] = useState([]);
 
   // PCD continua toggle (boolean não tem caso ausente separável de false)
-  const [filtroPcd, setFiltroPcd] = useState<boolean>(false);
+  const [filtroPcd, setFiltroPcd] = useState(false);
 
   const [paginaAtual, setPaginaAtual] = useState(1);
   const VAGAS_POR_PAGINA = 9;
@@ -100,24 +90,24 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
   // Valores ausentes ("Não informado", "Brasil", vazio) NÃO aparecem no dropdown,
   // mas vagas com esses valores ainda aparecem nos resultados via permissividade.
   const estadosDisponiveis = useMemo(() => {
-    const estados = new Set<string>();
+    const estados = new Set();
     vagasIniciais.forEach((v) => {
-      if (!estaAusente(v.state)) estados.add(v.state!);
+      if (!estaAusente(v.state)) estados.add(v.state);
     });
     return Array.from(estados).sort();
   }, [vagasIniciais]);
 
   const contratosDisponiveis = useMemo(() => {
-    const contratos = new Set<string>();
+    const contratos = new Set();
     vagasIniciais.forEach((v) => {
-      if (!estaAusente(v.tipo_contrato)) contratos.add(v.tipo_contrato!);
+      if (!estaAusente(v.tipo_contrato)) contratos.add(v.tipo_contrato);
     });
     return Array.from(contratos).sort();
   }, [vagasIniciais]);
 
   // Origem é sempre preenchida pelo scraper — sem permissividade aqui.
   const origensDisponiveis = useMemo(() => {
-    const origens = new Set<string>();
+    const origens = new Set();
     vagasIniciais.forEach((v) => {
       if (v.origem && v.origem.trim()) origens.add(v.origem);
     });
@@ -181,14 +171,14 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
     if (filtrosEstado.length > 0) {
       resultado = resultado.filter((v) => {
         if (estaAusente(v.state)) return true;
-        return filtrosEstado.includes(v.state!);
+        return filtrosEstado.includes(v.state);
       });
     }
     // 5. Tipo de contrato (multi-select OR + permissivo)
     if (filtrosContrato.length > 0) {
       resultado = resultado.filter((v) => {
         if (estaAusente(v.tipo_contrato)) return true;
-        return filtrosContrato.includes(v.tipo_contrato!);
+        return filtrosContrato.includes(v.tipo_contrato);
       });
     }
 
@@ -258,7 +248,7 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
   }, [vagasFiltradas, paginaAtual]);
 
   const paginasVisiveis = () => {
-    const pages: number[] = [];
+    const pages = [];
     for (
       let i = Math.max(1, paginaAtual - 2);
       i <= Math.min(totalPaginas, paginaAtual + 2);
@@ -269,12 +259,12 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
     return pages;
   };
 
-  const removerDeArray = (arr: string[], valor: string): string[] =>
+  const removerDeArray = (arr, valor) =>
     arr.filter((v) => v !== valor);
 
   // --- Metadados: cada item de array vira UM chip individual ---
-  const filtrosAtivos: FiltroAtivo[] = useMemo(() => {
-    const lista: FiltroAtivo[] = [];
+  const filtrosAtivos = useMemo(() => {
+    const lista = [];
 
     if (busca.trim()) {
       lista.push({ nome: `"${busca.trim()}"`, limpar: () => setBusca("") });
@@ -288,7 +278,7 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
     });
 
     filtrosNivel.forEach((nivel) => {
-      const mapNivel: Record<string, string> = {
+      const mapNivel = {
         estagio: "Estágio",
         junior: "Júnior",
         pleno: "Pleno",

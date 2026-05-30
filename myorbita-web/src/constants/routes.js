@@ -10,4 +10,4 @@ export const ROUTES = {
     FIREBASE_VAGAS_DEV_LINKEDIN: "/vagas/dev/linkedin",
     FIREBASE_VAGAS_ADV_GUPY: "/vagas/adv/gupy",
     FIREBASE_VAGAS_ADV_LINKEDIN: "/vagas/adv/linkedin",
-} as const;
+};

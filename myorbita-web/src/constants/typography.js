@@ -15,4 +15,4 @@ export const TYPOGRAPHY = {
         semibold: 600,
         bold: 700,
     }
-} as const;
+};

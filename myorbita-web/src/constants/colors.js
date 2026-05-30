@@ -22,4 +22,4 @@ export const COLORS = {
     error: '#FC8181',
     glassBg: 'rgba(255,255,255,0.05)',
     glassBorder: 'rgba(255,255,255,0.10)',
-} as const;
+};

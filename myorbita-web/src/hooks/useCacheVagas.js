@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getVagas } from "../services/api";
-import type { IVaga } from "../types/IVaga";
 
 /**
  * Cache de vagas em localStorage com TTL.
@@ -24,16 +23,11 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const CACHE_PREFIX = "myorbita:cache:vagas:";
 const CACHE_TS_SUFFIX = ":ts";
 
-type CacheEntry = {
-  vagas: IVaga[];
-  timestamp: number;
-};
-
 /**
  * Lê o cache de uma rota específica.
  * Retorna null se não existir, estiver corrompido ou expirado.
  */
-const lerCacheRota = (rota: string): CacheEntry | null => {
+const lerCacheRota = (rota) => {
   try {
     const chaveVagas = `${CACHE_PREFIX}${rota}`;
     const chaveTs = `${chaveVagas}${CACHE_TS_SUFFIX}`;
@@ -49,7 +43,7 @@ const lerCacheRota = (rota: string): CacheEntry | null => {
     // Cache expirado?
     if (Date.now() - timestamp > CACHE_TTL_MS) return null;
 
-    const vagas = JSON.parse(rawVagas) as IVaga[];
+    const vagas = JSON.parse(rawVagas);
     if (!Array.isArray(vagas)) return null;
 
     return { vagas, timestamp };
@@ -62,7 +56,7 @@ const lerCacheRota = (rota: string): CacheEntry | null => {
 /**
  * Salva no cache o resultado de uma rota, junto com timestamp da escrita.
  */
-const salvarCacheRota = (rota: string, vagas: IVaga[]): void => {
+const salvarCacheRota = (rota, vagas) => {
   try {
     const chaveVagas = `${CACHE_PREFIX}${rota}`;
     const chaveTs = `${chaveVagas}${CACHE_TS_SUFFIX}`;
@@ -78,7 +72,7 @@ const salvarCacheRota = (rota: string, vagas: IVaga[]): void => {
  * Invalida (remove) o cache de uma rota específica.
  * Usado por recarregar() antes de buscar novamente do Firebase.
  */
-const invalidarCacheRota = (rota: string): void => {
+const invalidarCacheRota = (rota) => {
   try {
     const chaveVagas = `${CACHE_PREFIX}${rota}`;
     const chaveTs = `${chaveVagas}${CACHE_TS_SUFFIX}`;
@@ -89,38 +83,23 @@ const invalidarCacheRota = (rota: string): void => {
   }
 };
 
-type UseCacheVagasReturn = {
-  /** Array mesclado de vagas de todas as rotas solicitadas. */
-  vagas: IVaga[];
-  /** True enquanto a primeira carga do Firebase está em andamento. */
-  carregando: boolean;
-  /** Timestamp (ms) da última vez que as vagas foram atualizadas (cache ou fetch). */
-  atualizadoEm: number | null;
-  /** Força invalidação do cache e refetch do Firebase. */
-  recarregar: () => Promise<void>;
-  /** True enquanto um refetch manual está acontecendo (distinto de carregando). */
-  atualizando: boolean;
-  /** Mensagem de erro da última tentativa de fetch (null se bem-sucedida). */
-  erro: string | null;
-};
-
 /**
  * Hook que busca vagas de múltiplas rotas do Firebase com cache local.
  *
  * @param rotas Array de rotas Firebase (ex: [ROUTES.FIREBASE_VAGAS_DEV_GUPY, ROUTES.FIREBASE_VAGAS_DEV_LINKEDIN])
  * @returns Objeto com vagas mescladas, estados de loading e função de recarregar
  */
-export function useCacheVagas(rotas: string[]): UseCacheVagasReturn {
-  const [vagas, setVagas] = useState<IVaga[]>([]);
+export function useCacheVagas(rotas) {
+  const [vagas, setVagas] = useState([]);
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
-  const [atualizadoEm, setAtualizadoEm] = useState<number | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
+  const [atualizadoEm, setAtualizadoEm] = useState(null);
+  const [erro, setErro] = useState(null);
 
   // Estabiliza a referência de `rotas` pelo conteúdo, não pela identidade do array.
   // Evita que o consumidor passando `[ROUTE_A, ROUTE_B]` inline a cada render
   // invalide useCallback/useEffect desnecessariamente.
-  const rotasRef = useRef<string[]>(rotas);
+  const rotasRef = useRef(rotas);
   const rotasAssinatura = rotas.join("|");
   if (rotasRef.current.join("|") !== rotasAssinatura) {
     rotasRef.current = rotas;
@@ -137,13 +116,13 @@ export function useCacheVagas(rotas: string[]): UseCacheVagasReturn {
    * @param forcar Se true, ignora cache e sempre fetcha do Firebase
    */
   const buscarTodas = useCallback(
-    async (forcar: boolean = false) => {
+    async (forcar = false) => {
       const rotasAtuais = rotasRef.current;
 
       // null = nenhum cache hit ainda; vamos preencher conforme lemos cache.
-      let timestampMaisAntigo: number | null = null;
-      const rotasParaFetchar: string[] = [];
-      const vagasDoCache: IVaga[] = [];
+      let timestampMaisAntigo = null;
+      const rotasParaFetchar = [];
+      const vagasDoCache = [];
 
       // 1. Passo: verifica cache de cada rota
       for (const rota of rotasAtuais) {
