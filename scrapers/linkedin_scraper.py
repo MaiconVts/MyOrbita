@@ -336,7 +336,7 @@ class LinkedinScraper(BaseScraper):
         if self._requests_realizados >= self._MAX_REQUESTS_POR_EXECUCAO:
             logger.warning(
                 f"[LINKEDIN] Teto global de {
-                    self._MAX_REQUESTS_POR_EXECUCAO} requests atingido. " f"Parando graciosamente.")
+                    self._MAX_REQUESTS_POR_EXECUCAO} requests atingido. Parando graciosamente.")
             return True
         return False
 
@@ -344,7 +344,7 @@ class LinkedinScraper(BaseScraper):
         if self._erros_consecutivos >= self._MAX_ERROS_CONSECUTIVOS:
             logger.error(
                 f"[LINKEDIN] Circuit breaker aberto: {
-                    self._erros_consecutivos} erros consecutivos. " f"Abortando para evitar ban.")
+                    self._erros_consecutivos} erros consecutivos. Abortando para evitar ban.")
             return True
         return False
 
@@ -354,12 +354,8 @@ class LinkedinScraper(BaseScraper):
 
         taxa = 1 - (self._requests_com_sucesso / self._requests_realizados)
         if taxa > self._TAXA_ERRO_CRITICA:
-            logger.warning(
-                f"[LINKEDIN] Taxa de erro {
-                    taxa:.1%} acima do limiar ({
-                    self._TAXA_ERRO_CRITICA:.0%}). " f"Pausa de recuperação de {
-                    self._PAUSA_RECUPERACAO /
-                    60:.0f} minutos...")
+            minutos = self._PAUSA_RECUPERACAO / 60
+            logger.warning(f"[LINKEDIN] Taxa de erro {taxa:.1%} acima do limiar ({self._TAXA_ERRO_CRITICA:.0%}). Pausa de recuperação de {minutos:.0f} minutos...")
             time.sleep(self._PAUSA_RECUPERACAO)
             self._erros_consecutivos = 0
 
