@@ -17,7 +17,9 @@ import type { IVaga } from "../types/IVaga";
 import { ROUTES } from "../constants/routes";
 import VagaDetalhe from "../components/VagaDetalhe";
 import PageTransition from "../components/PageTransition";
-import FiltroMultiSelect, { type OpcaoMultiSelect } from "../components/FiltroMultiSelect";
+import FiltroMultiSelect, {
+  type OpcaoMultiSelect,
+} from "../components/FiltroMultiSelect";
 import { useFiltrosVagas } from "../hooks/useFiltrosVagas";
 import { useCacheVagas } from "../hooks/useCacheVagas";
 
@@ -25,7 +27,7 @@ import { useCacheVagas } from "../hooks/useCacheVagas";
 // Helper local — mesma lógica do hook, duplicado intencionalmente
 // para desacoplamento.
 // =====================================================================
-const VALORES_AUSENTES = new Set(["", "Não informado", "Brasil"]);
+const VALORES_AUSENTES = new Set(["", "Não informado"]);
 
 const estaAusente = (valor?: string): boolean => {
   if (!valor) return true;
@@ -89,9 +91,12 @@ function formatarData(iso: string): string {
 function corPrazo(prazoIso: string): { cor: string; texto: string } {
   const hoje = new Date();
   const prazo = new Date(prazoIso);
-  const dias = Math.ceil((prazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
+  const dias = Math.ceil(
+    (prazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24),
+  );
   if (dias < 0) return { cor: "#F87171", texto: "expirada" };
-  if (dias <= 7) return { cor: "#FFB703", texto: `até ${formatarData(prazoIso)}` };
+  if (dias <= 7)
+    return { cor: "#FFB703", texto: `até ${formatarData(prazoIso)}` };
   return { cor: "#34D399", texto: `até ${formatarData(prazoIso)}` };
 }
 
@@ -108,7 +113,10 @@ function formatarTempoRelativo(timestamp: number | null): string {
   return `há ${diffD}d`;
 }
 
-function formatarLocalizacao(city?: string, state?: string): { texto: string; ausente: boolean } {
+function formatarLocalizacao(
+  city?: string,
+  state?: string,
+): { texto: string; ausente: boolean } {
   const cityValido = !estaAusente(city);
   const stateValido = !estaAusente(state);
 
@@ -133,23 +141,43 @@ const selectBase: React.CSSProperties = {
 export default function VagasAdv() {
   const [vagaSelecionada, setVagaSelecionada] = useState<IVaga | null>(null);
 
-  const { vagas: vagasRaw, carregando, atualizando, atualizadoEm, recarregar } = useCacheVagas(ROTAS_ADV);
+  const {
+    vagas: vagasRaw,
+    carregando,
+    atualizando,
+    atualizadoEm,
+    recarregar,
+  } = useCacheVagas(ROTAS_ADV);
 
   const {
-    busca, setBusca,
-    ordenacao, setOrdenacao,
-    filtrosModalidade, setFiltrosModalidade,
-    filtrosNivel, setFiltrosNivel,
-    filtrosEstado, setFiltrosEstado,
-    filtrosContrato, setFiltrosContrato,
-    filtrosOrigem, setFiltrosOrigem,
-    filtroPcd, setFiltroPcd,
+    busca,
+    setBusca,
+    ordenacao,
+    setOrdenacao,
+    filtrosModalidade,
+    setFiltrosModalidade,
+    filtrosNivel,
+    setFiltrosNivel,
+    filtrosEstado,
+    setFiltrosEstado,
+    filtrosContrato,
+    setFiltrosContrato,
+    filtrosOrigem,
+    setFiltrosOrigem,
+    filtroPcd,
+    setFiltroPcd,
     estadosDisponiveis,
     contratosDisponiveis,
     origensDisponiveis,
-    paginaAtual, setPaginaAtual,
-    vagasFiltradas, vagasPagina, totalPaginas, paginasVisiveis,
-    filtrosAtivos, totalFiltrosAtivos, limparFiltros,
+    paginaAtual,
+    setPaginaAtual,
+    vagasFiltradas,
+    vagasPagina,
+    totalPaginas,
+    paginasVisiveis,
+    filtrosAtivos,
+    totalFiltrosAtivos,
+    limparFiltros,
   } = useFiltrosVagas(vagasRaw);
 
   const opcoesEstado: OpcaoMultiSelect[] = estadosDisponiveis.map((uf) => ({
@@ -157,10 +185,12 @@ export default function VagasAdv() {
     label: uf,
   }));
 
-  const opcoesContrato: OpcaoMultiSelect[] = contratosDisponiveis.map((tipo) => ({
-    value: tipo,
-    label: tipo,
-  }));
+  const opcoesContrato: OpcaoMultiSelect[] = contratosDisponiveis.map(
+    (tipo) => ({
+      value: tipo,
+      label: tipo,
+    }),
+  );
 
   const toggleOrigem = (origem: string) => {
     if (filtrosOrigem.includes(origem)) {
@@ -229,7 +259,8 @@ export default function VagasAdv() {
               className="text-[42px] sm:text-[52px] font-bold text-white mb-3"
               style={{
                 fontFamily: "'Space Grotesk', sans-serif",
-                textShadow: "0 0 30px rgba(255,183,3,0.4), 0 0 60px rgba(255,183,3,0.15)",
+                textShadow:
+                  "0 0 30px rgba(255,183,3,0.4), 0 0 60px rgba(255,183,3,0.15)",
               }}
             >
               Vagas Jurídico
@@ -269,7 +300,8 @@ export default function VagasAdv() {
                       border: "1px solid rgba(255,183,3,0.3)",
                     }}
                   >
-                    {totalFiltrosAtivos} {totalFiltrosAtivos === 1 ? "ativo" : "ativos"}
+                    {totalFiltrosAtivos}{" "}
+                    {totalFiltrosAtivos === 1 ? "ativo" : "ativos"}
                   </span>
                 )}
               </div>
@@ -286,10 +318,16 @@ export default function VagasAdv() {
                       onClick={recarregar}
                       disabled={atualizando}
                       className="flex items-center gap-1.5 text-[12px] text-[#A0AEC0] hover:text-white transition-colors disabled:opacity-50"
-                      style={{ fontWeight: 500, cursor: atualizando ? "wait" : "pointer" }}
+                      style={{
+                        fontWeight: 500,
+                        cursor: atualizando ? "wait" : "pointer",
+                      }}
                       title="Buscar vagas atualizadas no Firebase"
                     >
-                      <RefreshCw size={14} className={atualizando ? "icon-spinning" : ""} />
+                      <RefreshCw
+                        size={14}
+                        className={atualizando ? "icon-spinning" : ""}
+                      />
                       Atualizar
                     </button>
                   </div>
@@ -309,8 +347,16 @@ export default function VagasAdv() {
             </div>
 
             <div className="linha-busca">
-              <div className="relative flex items-center flex-1" style={{ minWidth: 0 }}>
-                <Search className="absolute left-4" size={16} color="#FFB703" style={{ pointerEvents: "none" }} />
+              <div
+                className="relative flex items-center flex-1"
+                style={{ minWidth: 0 }}
+              >
+                <Search
+                  className="absolute left-4"
+                  size={16}
+                  color="#FFB703"
+                  style={{ pointerEvents: "none" }}
+                />
                 <input
                   type="text"
                   placeholder="Ex: Advogado Trabalhista Pleno"
@@ -325,8 +371,14 @@ export default function VagasAdv() {
                     paddingRight: "16px",
                     minWidth: 0,
                   }}
-                  onFocus={(e) => (e.currentTarget.style.border = "1px solid rgba(255,183,3,0.5)")}
-                  onBlur={(e) => (e.currentTarget.style.border = "1px solid rgba(255,255,255,0.09)")}
+                  onFocus={(e) =>
+                    (e.currentTarget.style.border =
+                      "1px solid rgba(255,183,3,0.5)")
+                  }
+                  onBlur={(e) =>
+                    (e.currentTarget.style.border =
+                      "1px solid rgba(255,255,255,0.09)")
+                  }
                 />
               </div>
 
@@ -341,12 +393,18 @@ export default function VagasAdv() {
 
               <select
                 value={ordenacao}
-                onChange={(e) => setOrdenacao(e.target.value as "recente" | "antiga")}
+                onChange={(e) =>
+                  setOrdenacao(e.target.value as "recente" | "antiga")
+                }
                 className="h-[44px] px-4 text-[13px] text-white outline-none cursor-pointer shrink-0"
                 style={{ ...selectBase }}
               >
-                <option value="recente" style={{ color: "#050015" }}>Mais recentes</option>
-                <option value="antiga" style={{ color: "#050015" }}>Mais antigas</option>
+                <option value="recente" style={{ color: "#050015" }}>
+                  Mais recentes
+                </option>
+                <option value="antiga" style={{ color: "#050015" }}>
+                  Mais antigas
+                </option>
               </select>
             </div>
 
@@ -367,7 +425,11 @@ export default function VagasAdv() {
                 </span>
                 {filtrosOrigem.length > 0 && (
                   <span className="text-[10px] text-[#FFB703] opacity-70">
-                    ({filtrosOrigem.length} {filtrosOrigem.length === 1 ? "selecionada" : "selecionadas"})
+                    ({filtrosOrigem.length}{" "}
+                    {filtrosOrigem.length === 1
+                      ? "selecionada"
+                      : "selecionadas"}
+                    )
                   </span>
                 )}
               </div>
@@ -437,8 +499,12 @@ export default function VagasAdv() {
                 onClick={() => setFiltroPcd(!filtroPcd)}
                 className="flex items-center justify-center gap-2 h-[44px] px-4 rounded-[10px] text-[13px] transition-all duration-200 whitespace-nowrap"
                 style={{
-                  background: filtroPcd ? "rgba(255,183,3,0.15)" : "rgba(255,255,255,0.05)",
-                  border: filtroPcd ? "1px solid rgba(255,183,3,0.4)" : "1px solid rgba(255,255,255,0.09)",
+                  background: filtroPcd
+                    ? "rgba(255,183,3,0.15)"
+                    : "rgba(255,255,255,0.05)",
+                  border: filtroPcd
+                    ? "1px solid rgba(255,183,3,0.4)"
+                    : "1px solid rgba(255,255,255,0.09)",
                   color: filtroPcd ? "#FFB703" : "#A0AEC0",
                   fontWeight: filtroPcd ? 600 : 400,
                   minWidth: 0,
@@ -468,7 +534,13 @@ export default function VagasAdv() {
                     }}
                     title="Clique para remover este filtro"
                   >
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
                       {filtro.nome}
                     </span>
                     <X size={11} style={{ flexShrink: 0 }} />
@@ -495,8 +567,13 @@ export default function VagasAdv() {
               {totalFiltrosAtivos > 0 ? (
                 <>
                   <p className="text-[#A0AEC0] text-[13px] max-w-md">
-                    Você tem {totalFiltrosAtivos} {totalFiltrosAtivos === 1 ? "filtro ativo" : "filtros ativos"}.
-                    Tente remover {totalFiltrosAtivos === 1 ? "ele" : "alguns"} para ver mais resultados.
+                    Você tem {totalFiltrosAtivos}{" "}
+                    {totalFiltrosAtivos === 1
+                      ? "filtro ativo"
+                      : "filtros ativos"}
+                    . Tente remover{" "}
+                    {totalFiltrosAtivos === 1 ? "ele" : "alguns"} para ver mais
+                    resultados.
                   </p>
 
                   <div className="flex flex-wrap justify-center gap-2 mt-2 max-w-lg">
@@ -511,7 +588,10 @@ export default function VagasAdv() {
                           border: "1px solid rgba(255,255,255,0.1)",
                         }}
                       >
-                        Remover: <strong style={{ color: "#FFFFFF" }}>{filtro.nome}</strong>
+                        Remover:{" "}
+                        <strong style={{ color: "#FFFFFF" }}>
+                          {filtro.nome}
+                        </strong>
                         <X size={12} />
                       </button>
                     ))}
@@ -527,7 +607,8 @@ export default function VagasAdv() {
                 </>
               ) : (
                 <p className="text-[#A0AEC0] text-[13px]">
-                  As vagas ainda estão sendo coletadas. Tente novamente em alguns minutos.
+                  As vagas ainda estão sendo coletadas. Tente novamente em
+                  alguns minutos.
                 </p>
               )}
             </div>
@@ -543,15 +624,16 @@ export default function VagasAdv() {
 
                 const corMod = modalidadeAusente
                   ? COR_AUSENTE
-                  : modalidadeCor[vaga.modalidade] ?? "#A0AEC0";
+                  : (modalidadeCor[vaga.modalidade] ?? "#A0AEC0");
                 const corCont = contratoAusente
                   ? COR_AUSENTE
-                  : contratoCor[vaga.tipo_contrato ?? ""] ?? "#94A3B8";
+                  : (contratoCor[vaga.tipo_contrato ?? ""] ?? "#94A3B8");
                 const corOri = origemCor[vaga.origem] ?? "#94A3B8";
 
-                const prazo = vaga.prazo_inscricao && !estaAusente(vaga.prazo_inscricao)
-                  ? corPrazo(vaga.prazo_inscricao)
-                  : null;
+                const prazo =
+                  vaga.prazo_inscricao && !estaAusente(vaga.prazo_inscricao)
+                    ? corPrazo(vaga.prazo_inscricao)
+                    : null;
 
                 return (
                   <div
@@ -567,14 +649,19 @@ export default function VagasAdv() {
                       minHeight: "180px",
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(255,255,255,0.15)";
-                      e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                      e.currentTarget.style.border =
+                        "1px solid rgba(255,255,255,0.15)";
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.05)";
                       e.currentTarget.style.transform = "translateY(-4px)";
-                      e.currentTarget.style.boxShadow = "0 10px 30px -10px rgba(0,0,0,0.5)";
+                      e.currentTarget.style.boxShadow =
+                        "0 10px 30px -10px rgba(0,0,0,0.5)";
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.border = "1px solid rgba(255,255,255,0.06)";
-                      e.currentTarget.style.background = "rgba(255,255,255,0.03)";
+                      e.currentTarget.style.border =
+                        "1px solid rgba(255,255,255,0.06)";
+                      e.currentTarget.style.background =
+                        "rgba(255,255,255,0.03)";
                       e.currentTarget.style.transform = "translateY(0)";
                       e.currentTarget.style.boxShadow = "none";
                     }}
@@ -591,10 +678,16 @@ export default function VagasAdv() {
                           border: `1px solid ${corMod}30`,
                           fontStyle: modalidadeAusente ? "italic" : "normal",
                         }}
-                        title={modalidadeAusente ? "Modalidade não informada na vaga original" : undefined}
+                        title={
+                          modalidadeAusente
+                            ? "Modalidade não informada na vaga original"
+                            : undefined
+                        }
                       >
                         {modalidadeAusente && <AlertCircle size={10} />}
-                        {modalidadeAusente ? "Modalidade não informada" : vaga.modalidade}
+                        {modalidadeAusente
+                          ? "Modalidade não informada"
+                          : vaga.modalidade}
                       </span>
                     </div>
 
@@ -623,9 +716,17 @@ export default function VagasAdv() {
                           color: localizacao.ausente ? COR_AUSENTE : "#A0AEC0",
                           fontStyle: localizacao.ausente ? "italic" : "normal",
                         }}
-                        title={localizacao.ausente ? "Localização não informada na vaga original" : undefined}
+                        title={
+                          localizacao.ausente
+                            ? "Localização não informada na vaga original"
+                            : undefined
+                        }
                       >
-                        {localizacao.ausente ? <AlertCircle size={11} /> : <MapPin size={11} />}
+                        {localizacao.ausente ? (
+                          <AlertCircle size={11} />
+                        ) : (
+                          <MapPin size={11} />
+                        )}
                         {localizacao.texto}
                       </span>
 
@@ -637,16 +738,26 @@ export default function VagasAdv() {
                           border: `1px solid ${corCont}30`,
                           fontStyle: contratoAusente ? "italic" : "normal",
                         }}
-                        title={contratoAusente ? "Tipo de contrato não informado na vaga original" : undefined}
+                        title={
+                          contratoAusente
+                            ? "Tipo de contrato não informado na vaga original"
+                            : undefined
+                        }
                       >
                         {contratoAusente && <AlertCircle size={10} />}
-                        {contratoAusente ? "Contrato não informado" : vaga.tipo_contrato}
+                        {contratoAusente
+                          ? "Contrato não informado"
+                          : vaga.tipo_contrato}
                       </span>
 
                       {vaga.pcd && (
                         <span
                           className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1"
-                          style={{ background: "rgba(52,211,153,0.15)", color: "#34D399", border: "1px solid rgba(52,211,153,0.3)" }}
+                          style={{
+                            background: "rgba(52,211,153,0.15)",
+                            color: "#34D399",
+                            border: "1px solid rgba(52,211,153,0.3)",
+                          }}
                         >
                           <Accessibility size={10} />
                           PCD
@@ -656,9 +767,16 @@ export default function VagasAdv() {
 
                     <div className="flex items-center justify-between pt-3 border-t border-[rgba(255,255,255,0.05)]">
                       <div className="flex items-center gap-3">
-                        <span className="text-[12px] text-[#6b7280]">{formatarData(vaga.data_publicacao)}</span>
+                        <span className="text-[12px] text-[#6b7280]">
+                          {formatarData(vaga.data_publicacao)}
+                        </span>
                         {prazo && (
-                          <span className="text-[11px]" style={{ color: prazo.cor }}>{prazo.texto}</span>
+                          <span
+                            className="text-[11px]"
+                            style={{ color: prazo.cor }}
+                          >
+                            {prazo.texto}
+                          </span>
                         )}
                       </div>
                       <span className="text-[12px] text-[#FFB703] font-medium opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
@@ -692,8 +810,12 @@ export default function VagasAdv() {
                   onClick={() => setPaginaAtual(p)}
                   className="w-10 h-10 flex items-center justify-center text-[14px] rounded-xl transition-all"
                   style={{
-                    background: paginaAtual === p ? "#4FC3F7" : "rgba(255,255,255,0.03)",
-                    border: paginaAtual === p ? "1px solid #4FC3F7" : "1px solid rgba(255,255,255,0.05)",
+                    background:
+                      paginaAtual === p ? "#FFB703" : "rgba(255,255,255,0.03)",
+                    border:
+                      paginaAtual === p
+                        ? "1px solid #FFB703"
+                        : "1px solid rgba(255,255,255,0.05)",
                     color: paginaAtual === p ? "#050015" : "#A0AEC0",
                     fontWeight: paginaAtual === p ? 700 : 500,
                   }}
@@ -702,7 +824,9 @@ export default function VagasAdv() {
                 </button>
               ))}
               <button
-                onClick={() => setPaginaAtual((p) => Math.min(totalPaginas, p + 1))}
+                onClick={() =>
+                  setPaginaAtual((p) => Math.min(totalPaginas, p + 1))
+                }
                 disabled={paginaAtual === totalPaginas}
                 className="w-10 h-10 flex items-center justify-center rounded-xl transition-all"
                 style={{
@@ -735,14 +859,19 @@ export default function VagasAdv() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FFB703]"></span>
                 </span>
                 {vagasFiltradas.length}{" "}
-                {vagasFiltradas.length === 1 ? "vaga encontrada" : "vagas encontradas"}
+                {vagasFiltradas.length === 1
+                  ? "vaga encontrada"
+                  : "vagas encontradas"}
               </div>
             </div>
           )}
         </div>
 
         {vagaSelecionada && (
-          <VagaDetalhe vaga={vagaSelecionada} onClose={() => setVagaSelecionada(null)} />
+          <VagaDetalhe
+            vaga={vagaSelecionada}
+            onClose={() => setVagaSelecionada(null)}
+          />
         )}
       </div>
     </PageTransition>
