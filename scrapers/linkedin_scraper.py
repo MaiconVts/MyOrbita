@@ -47,6 +47,7 @@ Seletores CSS confirmados (Abril/2026):
 import logging
 import random
 import time
+import re
 from urllib.parse import quote_plus
 
 from curl_cffi import requests as cffi_requests
@@ -69,13 +70,69 @@ MODALIDADE_MAP = {
     'híbrido': 'Híbrido',
     'hibrido': 'Híbrido',
 }
+_CIDADE_PARA_UF = {
+    'são paulo': 'SP',
+    'rio de janeiro': 'RJ',
+    'belo horizonte': 'MG',
+    'curitiba': 'PR',
+    'porto alegre': 'RS',
+    'salvador': 'BA',
+    'fortaleza': 'CE',
+    'recife': 'PE',
+    'manaus': 'AM',
+    'belém': 'PA',
+    'goiânia': 'GO',
+    'florianópolis': 'SC',
+    'brasília': 'DF',
+    'campinas': 'SP',
+    'guarulhos': 'SP',
+    'são bernardo do campo': 'SP',
+    'santo andré': 'SP',
+    'osasco': 'SP',
+    'uberlândia': 'MG',
+    'contagem': 'MG',
+    'vitória': 'ES',
+    'natal': 'RN',
+    'maceió': 'AL',
+    'teresina': 'PI',
+    'campo grande': 'MS',
+    'joão pessoa': 'PB',
+    'aracaju': 'SE',
+    'porto velho': 'RO',
+    'cuiabá': 'MT',
+    'macapá': 'AP',
+    'boa vista': 'RR',
+    'palmas': 'TO',
+    'rio branco': 'AC',
+    'são luís': 'MA',
+}
+TIPO_CONTRATO_MAP = {
+    # JSON-LD (uppercase)
+    'full_time': 'CLT',
+    'part_time': 'Meio período',
+    'internship': 'Estágio',
+    'contract': 'PJ',
+    'temporary': 'Temporário',
+    'volunteer': 'Voluntário',
+    # EN (hyphen)
+    'full-time': 'CLT',
+    'part-time': 'Meio período',
+    # PT-BR (HTML)
+    'tempo integral': 'CLT',
+    'meio período': 'Meio período',
+    'estágio': 'Estágio',
+    'autônomo': 'PJ',
+    'temporário': 'Temporário',
+    'trainee': 'Trainee',
+    'voluntário': 'Voluntário',
+}
 
 # f_WT=1 (presencial) | f_WT=2 (remoto) | f_WT=3 (híbrido)
 F_WT_MAP = {
-    'remoto':     ('2', 'Remoto'),
+    'remoto': ('2', 'Remoto'),
     'presencial': ('1', 'Presencial'),
-    'hibrido':    ('3', 'Híbrido'),
-    'híbrido':    ('3', 'Híbrido'),
+    'hibrido': ('3', 'Híbrido'),
+    'híbrido': ('3', 'Híbrido'),
 }
 
 # Termos que indicam "país" e não "estado" — usados para detectar quando o
@@ -93,11 +150,14 @@ _USER_AGENTS = [
 
 _BLOQUEIO_SIGNALS = [
     'authwall',
-    'captcha',
     '/challenge/',
     'checkpoint/challenge',
 ]
-
+_CAPTCHA_SIGNALS = [
+    'captcha-submission',
+    'captcha?from=',
+    'hcaptcha',
+]
 _TAMANHO_MINIMO_RESPONSE = 20_000
 
 
@@ -115,7 +175,7 @@ class LinkedinScraper(BaseScraper):
     _MAX_PAGINAS = 4
 
     # --- Limites globais de segurança ---
-    _MAX_REQUESTS_POR_EXECUCAO = 2000
+    _MAX_REQUESTS_POR_EXECUCAO = 10000
     _MAX_ERROS_CONSECUTIVOS = 5
     _TAXA_ERRO_CRITICA = 0.20
 
@@ -150,10 +210,12 @@ class LinkedinScraper(BaseScraper):
     # ==================================================================
 
     def _iniciar_session(self):
-        """Cria curl_cffi Session com impersonate='chrome'."""
-        self._session: cffi_requests.Session = cffi_requests.Session(impersonate="chrome")
+        """Cria uma sessão fazendo curl_cffi replicando 'fingerprint' identico ao chrome"""
+        self._session: cffi_requests.Session = cffi_requests.Session(
+            impersonate="chrome")
         self._session.headers.update(self._gerar_headers_base())
-        logger.info("[LINKEDIN] Session curl_cffi criada com impersonate='chrome'")
+        logger.info(
+            "[LINKEDIN] Session curl_cffi criada com impersonate='chrome'")
 
     def _gerar_headers_base(self) -> dict:
         """Headers de navegador moderno + Sec-Fetch-*."""
@@ -187,7 +249,8 @@ class LinkedinScraper(BaseScraper):
         if self._session_aquecida:
             return
 
-        logger.info("[LINKEDIN] Aquecendo session (Google → Homepage → /jobs/)...")
+        logger.info(
+            "[LINKEDIN] Aquecendo session (Google → Homepage → /jobs/)...")
         self._rotacionar_user_agent()
 
         try:
@@ -205,10 +268,12 @@ class LinkedinScraper(BaseScraper):
 
             self._ultimo_referer = 'https://www.linkedin.com/jobs/'
             self._session_aquecida = True
-            logger.info("[LINKEDIN] Session aquecida com sucesso — cookies coletados")
+            logger.info(
+                "[LINKEDIN] Session aquecida com sucesso — cookies coletados")
 
         except Exception as e:
-            logger.warning(f"[LINKEDIN] Falha no warm-up: {e} — continuando sem warm-up")
+            logger.warning(
+                f"[LINKEDIN] Falha no warm-up: {e} — continuando sem warm-up")
             self._session_aquecida = True
 
     # ==================================================================
@@ -221,7 +286,12 @@ class LinkedinScraper(BaseScraper):
         delay = max(1.5, min(delay, media * 3))
         time.sleep(delay)
 
-    def _delay_gaussiano_clampado(self, media: float, desvio: float, minimo: float, maximo: float) -> float:
+    def _delay_gaussiano_clampado(
+            self,
+            media: float,
+            desvio: float,
+            minimo: float,
+            maximo: float) -> float:
         """Variante com clamp customizado [min, max]. Retorna delay aplicado."""
         delay = random.gauss(media, desvio)
         delay = max(minimo, min(delay, maximo))
@@ -232,26 +302,28 @@ class LinkedinScraper(BaseScraper):
     # CAMADA 4 — Detecção de Bloqueio
     # ==================================================================
 
-    def _detectar_bloqueio(self, response) -> str | None:
-        """3 sinais: authwall/captcha, response pequeno, ausência de cards."""
+    def _detectar_bloqueio(
+            self,
+            response,
+            pagina_interna: bool = False) -> str | None:
         content = response.content
-        # Decodifica como UTF-8 para análise — encoding errado aqui não importa
-        # porque só procuramos substrings ASCII (authwall, captcha, etc).
         content_text = content.decode('utf-8', errors='ignore').lower()
         content_size = len(content)
 
         for sinal in _BLOQUEIO_SIGNALS:
             if sinal in content_text:
-                if 'job-search-card' in content_text:
-                    continue
+                return f"authwall/captcha detectado (sinal: '{sinal}')"
+
+        for sinal in _CAPTCHA_SIGNALS:
+            if sinal in content_text:
                 return f"authwall/captcha detectado (sinal: '{sinal}')"
 
         if content_size < _TAMANHO_MINIMO_RESPONSE:
             if 'no-results' in content_text or 'jobs-search' in content_text:
                 return None
-            return f"response muito pequeno ({content_size} bytes, mínimo: {_TAMANHO_MINIMO_RESPONSE})"
+            return f"response muito pequeno ({content_size} bytes)"
 
-        if content_size > 50_000 and 'job-search-card' not in content_text:
+        if not pagina_interna and content_size > 50_000 and 'job-search-card' not in content_text:
             return "response grande mas sem cards de vaga (possível redirect para login)"
 
         return None
@@ -263,18 +335,16 @@ class LinkedinScraper(BaseScraper):
     def _limite_global_atingido(self) -> bool:
         if self._requests_realizados >= self._MAX_REQUESTS_POR_EXECUCAO:
             logger.warning(
-                f"[LINKEDIN] Teto global de {self._MAX_REQUESTS_POR_EXECUCAO} requests atingido. "
-                f"Parando graciosamente."
-            )
+                f"[LINKEDIN] Teto global de {
+                    self._MAX_REQUESTS_POR_EXECUCAO} requests atingido. " f"Parando graciosamente.")
             return True
         return False
 
     def _circuit_breaker_aberto(self) -> bool:
         if self._erros_consecutivos >= self._MAX_ERROS_CONSECUTIVOS:
             logger.error(
-                f"[LINKEDIN] Circuit breaker aberto: {self._erros_consecutivos} erros consecutivos. "
-                f"Abortando para evitar ban."
-            )
+                f"[LINKEDIN] Circuit breaker aberto: {
+                    self._erros_consecutivos} erros consecutivos. " f"Abortando para evitar ban.")
             return True
         return False
 
@@ -285,9 +355,11 @@ class LinkedinScraper(BaseScraper):
         taxa = 1 - (self._requests_com_sucesso / self._requests_realizados)
         if taxa > self._TAXA_ERRO_CRITICA:
             logger.warning(
-                f"[LINKEDIN] Taxa de erro {taxa:.1%} acima do limiar ({self._TAXA_ERRO_CRITICA:.0%}). "
-                f"Pausa de recuperação de {self._PAUSA_RECUPERACAO / 60:.0f} minutos..."
-            )
+                f"[LINKEDIN] Taxa de erro {
+                    taxa:.1%} acima do limiar ({
+                    self._TAXA_ERRO_CRITICA:.0%}). " f"Pausa de recuperação de {
+                    self._PAUSA_RECUPERACAO /
+                    60:.0f} minutos...")
             time.sleep(self._PAUSA_RECUPERACAO)
             self._erros_consecutivos = 0
 
@@ -321,7 +393,8 @@ class LinkedinScraper(BaseScraper):
             return content_bytes.decode('utf-8')
         except UnicodeDecodeError:
             # Fallback: substitui bytes inválidos por '?' em vez de quebrar
-            logger.warning("[LINKEDIN] Bytes inválidos no response — usando errors='replace'")
+            logger.warning(
+                "[LINKEDIN] Bytes inválidos no response — usando errors='replace'")
             return content_bytes.decode('utf-8', errors='replace')
 
     def _extrair_cards(self, html_content: bytes) -> list:
@@ -336,25 +409,31 @@ class LinkedinScraper(BaseScraper):
 
     def _parse_card(self, card) -> dict | None:
         """Extrai dados brutos de um único card. Retorna None se inválido."""
-        links = card.xpath('.//a[contains(@class, "base-card__full-link")]/@href')
+        links = card.xpath(
+            './/a[contains(@class, "base-card__full-link")]/@href')
         if not links:
             return None
         link = links[0].split('?')[0].strip()
         if not link:
             return None
 
-        titulos = card.xpath('.//h3[contains(@class, "base-search-card__title")]/text()')
+        titulos = card.xpath(
+            './/h3[contains(@class, "base-search-card__title")]/text()')
         titulo = titulos[0].strip() if titulos else None
 
-        empresas = card.xpath('.//h4[contains(@class, "base-search-card__subtitle")]//a/text()')
+        empresas = card.xpath(
+            './/h4[contains(@class, "base-search-card__subtitle")]//a/text()')
         empresa = empresas[0].strip() if empresas else None
 
-        locais = card.xpath('.//span[contains(@class, "job-search-card__location")]/text()')
+        locais = card.xpath(
+            './/span[contains(@class, "job-search-card__location")]/text()')
         localizacao = locais[0].strip() if locais else None
 
-        datas = card.xpath('.//time[contains(@class, "job-search-card__listdate")]/@datetime')
+        datas = card.xpath(
+            './/time[contains(@class, "job-search-card__listdate")]/@datetime')
         if not datas:
-            datas = card.xpath('.//time[contains(@class, "job-search-card__listdate--new")]/@datetime')
+            datas = card.xpath(
+                './/time[contains(@class, "job-search-card__listdate--new")]/@datetime')
         data_pub = datas[0].strip() if datas else None
 
         return {
@@ -381,14 +460,9 @@ class LinkedinScraper(BaseScraper):
 
         Casos tratados:
         - "São Paulo, São Paulo, Brasil"  → ("São Paulo", "São Paulo", "Brasil")
-        - "São Paulo, Brasil"             → ("São Paulo", None, "Brasil")     ← FIX
-        - "Brasil"                        → (None, None, "Brasil")             ← FIX
+        - "São Paulo, Brasil"             → ("São Paulo", "SP", "Brasil")  ← infere UF pelo mapa
+        - "Brasil"                        → (None, None, "Brasil")
         - None / vazio                    → (None, None, None)
-
-        ⚠️ FIX bug "Brasil no state":
-        Quando a localização tinha 2 partes e a segunda era "Brasil", a versão
-        antiga retornava (parte0, "Brasil", None) — colocando o nome do país
-        no campo state. Agora detectamos isso e jogamos para country.
         """
         if not localizacao_raw:
             return None, None, None
@@ -405,16 +479,14 @@ class LinkedinScraper(BaseScraper):
         # Caso 2: 2 partes — pode ser "Cidade, UF" ou "Cidade, Brasil"
         if len(partes) == 2:
             if self._eh_nome_pais(partes[1]):
-                # "São Paulo, Brasil" → city=São Paulo, country=Brasil, state=desconhecido
-                return partes[0], None, partes[1]
-            # "Cidade, UF" formato (ex: "São Paulo, SP")
+                city = partes[0]
+                state = _CIDADE_PARA_UF.get(city.lower().strip())
+                return city, state, partes[1]
             return partes[0], partes[1], None
 
         # Caso 3: 1 parte — pode ser só país ou só cidade
         if self._eh_nome_pais(partes[0]):
-            # "Brasil" puro → só preenche country
             return None, None, partes[0]
-        # Cidade isolada sem UF (raro, mas possível)
         return partes[0], None, None
 
     def _inferir_modalidade(self, localizacao_raw: str | None) -> str:
@@ -429,10 +501,46 @@ class LinkedinScraper(BaseScraper):
 
         return 'Não informado'
 
-    def _normalizar_vaga(self, vaga_raw: dict, modalidade_explicita: str | None = None) -> dict:
+    def _extrair_contrato_pagina_interna(self, link: str) -> str:
+        self._delay_gaussiano(3.0, 0.8)
+
+        response = self._fazer_request(link, pagina_interna=True)
+        if not response:
+            return 'Não informado'
+
+        html_string = self._decodificar_html_utf8(response.content)
+
+        # Fonte 1: JSON-LD — "employmentType":"FULL_TIME"
+        match = re.search(r'"employmentType"\s*:\s*"([^"]+)"', html_string)
+        if match:
+            valor = match.group(1).lower().strip()
+            contrato = TIPO_CONTRATO_MAP.get(valor)
+            if contrato:
+                return contrato
+
+        # Fonte 2: HTML — <span class="description__job-criteria-text">Tempo
+        # integral</span>
+        match = re.search(
+            r'description__job-criteria-text--criteria[^>]*>\s*([^<]+?)\s*<',
+            html_string
+        )
+        if match:
+            valor = match.group(1).lower().strip()
+            contrato = TIPO_CONTRATO_MAP.get(valor)
+            if contrato:
+                return contrato
+
+        return 'Não informado'
+
+    def _normalizar_vaga(
+            self,
+            vaga_raw: dict,
+            modalidade_explicita: str | None = None,
+            tipo_contrato: str | None = None) -> dict:
         """Conversão dict bruto → formato padronizado MyOrbita."""
         link = vaga_raw['link']
-        city_raw, state_raw, country_raw = self._parse_localizacao(vaga_raw.get('localizacao'))
+        city_raw, state_raw, country_raw = self._parse_localizacao(
+            vaga_raw.get('localizacao'))
 
         if modalidade_explicita:
             modalidade = modalidade_explicita
@@ -452,23 +560,33 @@ class LinkedinScraper(BaseScraper):
             state=state_raw,
             country=country_raw,
             is_remote=is_remote,
+            tipo_contrato=tipo_contrato,
         )
 
-    def _extrair_vagas_da_pagina(self, html_content: bytes, modalidade_explicita: str | None = None) -> list:
-        """Processa HTML de uma página e retorna vagas normalizadas."""
+    def _extrair_vagas_da_pagina(
+            self,
+            html_content: bytes,
+            modalidade_explicita: str | None = None) -> list:
         cards = self._extrair_cards(html_content)
         vagas = []
         for card in cards:
             vaga_raw = self._parse_card(card)
             if vaga_raw:
-                vagas.append(self._normalizar_vaga(vaga_raw, modalidade_explicita))
+                vagas.append(
+                    self._normalizar_vaga(
+                        vaga_raw,
+                        modalidade_explicita))
         return vagas
 
     # ==================================================================
     # CAMADA 8 — Request com Todas as Proteções
     # ==================================================================
 
-    def _montar_url(self, palavra_chave: str, offset: int = 0, f_wt: str | None = None) -> str:
+    def _montar_url(
+            self,
+            palavra_chave: str,
+            offset: int = 0,
+            f_wt: str | None = None) -> str:
         """
         Monta URL de busca do LinkedIn.
 
@@ -487,7 +605,7 @@ class LinkedinScraper(BaseScraper):
             url += f"&f_WT={f_wt}"
         return url
 
-    def _fazer_request(self, url: str):
+    def _fazer_request(self, url: str, pagina_interna: bool = False):
         """Request com todas as proteções ativas."""
         if self._limite_global_atingido():
             return None
@@ -498,14 +616,17 @@ class LinkedinScraper(BaseScraper):
         self._session.headers['Referer'] = self._ultimo_referer
         self._session.headers['Sec-Fetch-Site'] = 'same-origin'
 
-        self._delay_gaussiano(self._DELAY_ENTRE_REQUESTS_MEDIA, self._DELAY_ENTRE_REQUESTS_DESVIO)
+        self._delay_gaussiano(
+            self._DELAY_ENTRE_REQUESTS_MEDIA,
+            self._DELAY_ENTRE_REQUESTS_DESVIO)
 
         try:
             response = self._session.get(url, timeout=20)
             self._requests_realizados += 1
 
             if response.status_code == 200:
-                motivo_bloqueio = self._detectar_bloqueio(response)
+                motivo_bloqueio = self._detectar_bloqueio(
+                    response, pagina_interna=pagina_interna)
                 if motivo_bloqueio:
                     self._registrar_erro(motivo_bloqueio)
                     return None
@@ -516,7 +637,8 @@ class LinkedinScraper(BaseScraper):
 
             if response.status_code == 429:
                 retry_after = int(response.headers.get('Retry-After', 60))
-                self._registrar_erro(f"Rate limit (429) — aguardando {retry_after}s")
+                self._registrar_erro(
+                    f"Rate limit (429) — aguardando {retry_after}s")
                 time.sleep(retry_after)
                 return None
 
@@ -537,7 +659,11 @@ class LinkedinScraper(BaseScraper):
     # MÉTODO PÚBLICO — Contrato BaseScraper
     # ==================================================================
 
-    def buscar_vagas(self, palavra_chave: str, modalidade: str, limite: int = 50) -> list:
+    def buscar_vagas(
+            self,
+            palavra_chave: str,
+            modalidade: str,
+            limite: int = 50) -> list:
         """
         Implementação obrigatória do método de busca.
 
@@ -556,7 +682,8 @@ class LinkedinScraper(BaseScraper):
         self._verificar_taxa_erro()
 
         modalidade_normalizada = modalidade.lower().strip() if modalidade else ''
-        f_wt_code, modalidade_rotulo = F_WT_MAP.get(modalidade_normalizada, (None, None))
+        f_wt_code, modalidade_rotulo = F_WT_MAP.get(
+            modalidade_normalizada, (None, None))
 
         todas_vagas = []
 
@@ -572,13 +699,19 @@ class LinkedinScraper(BaseScraper):
             response = self._fazer_request(url)
 
             if not response:
-                logger.warning(f"[LINKEDIN] Paginação interrompida na página {pagina + 1}")
+                logger.warning(
+                    f"[LINKEDIN] Paginação interrompida na página {
+                        pagina + 1}")
                 break
 
-            vagas_pagina = self._extrair_vagas_da_pagina(response.content, modalidade_rotulo)
+            vagas_pagina = self._extrair_vagas_da_pagina(
+                response.content, modalidade_rotulo)
 
             if not vagas_pagina:
-                logger.info(f"[LINKEDIN] Página {pagina + 1} vazia — fim dos resultados")
+                logger.info(
+                    f"[LINKEDIN] Página {
+                        pagina +
+                        1} vazia — fim dos resultados")
                 break
 
             todas_vagas.extend(vagas_pagina)
@@ -602,8 +735,12 @@ class LinkedinScraper(BaseScraper):
                 )
 
         rotulo_log = modalidade_rotulo or 'todas'
-        logger.info(f"[LINKEDIN] '{palavra_chave}' ({rotulo_log}): {len(todas_vagas)} vagas coletadas")
+        logger.info(
+            f"[LINKEDIN] '{palavra_chave}' ({rotulo_log}): {
+                len(todas_vagas)} vagas coletadas")
 
-        self._delay_gaussiano(self._DELAY_ENTRE_KEYWORDS_MEDIA, self._DELAY_ENTRE_KEYWORDS_DESVIO)
+        self._delay_gaussiano(
+            self._DELAY_ENTRE_KEYWORDS_MEDIA,
+            self._DELAY_ENTRE_KEYWORDS_DESVIO)
 
         return todas_vagas
