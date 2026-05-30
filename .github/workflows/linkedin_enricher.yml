@@ -1,0 +1,46 @@
+# .github/workflows/linkedin_enricher.yml
+name: Enriquecedor LinkedIn — tipo_contrato
+
+on:
+  schedule:
+    - cron: '0 19 * * *' # Execução automática diária às 16:00 BRT (19:00 UTC) — horário pós-scraping
+  workflow_dispatch:
+
+jobs:
+  enrich:
+    name: Enriquecer tipo_contrato (DEV + ADV)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependências
+        run: pip install -r requirements.txt
+
+      - name: Criar arquivo de credenciais do Firebase
+        env:
+          FIREBASE_CREDENTIALS: ${{ secrets.FIREBASE_CREDENTIALS }}
+        run: |
+          mkdir -p secrets
+          echo "$FIREBASE_CREDENTIALS" > secrets/firebase_key.json
+
+      - name: Executar enriquecedor LinkedIn
+        env:
+          FIREBASE_KEY_PATH: secrets/firebase_key.json
+          FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
+        run: python main_linkedin_enrich.py
+
+      - name: Upload do log (sempre, mesmo em falha)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: enricher-linkedin-log
+          path: scraper.log
+          retention-days: 14
