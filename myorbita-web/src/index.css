@@ -1,10 +1,11 @@
 @import "tailwindcss";
 
-*, *::before, *::after {
+/* * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
+  essa linha estava zerando o padding e margin de todos os elementos, o que causava problemas de layout, especialmente em elementos como o body e o root. Remover essa regra permite que os estilos padrão sejam aplicados corretamente, evitando que o conteúdo seja cortado ou que haja espaços indesejados.
+} */ 
 
 html, body, #root {
   width: 100%;
