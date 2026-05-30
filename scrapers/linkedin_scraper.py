@@ -335,16 +335,16 @@ class LinkedinScraper(BaseScraper):
     def _limite_global_atingido(self) -> bool:
         if self._requests_realizados >= self._MAX_REQUESTS_POR_EXECUCAO:
             logger.warning(
-                f"[LINKEDIN] Teto global de {
-                    self._MAX_REQUESTS_POR_EXECUCAO} requests atingido. Parando graciosamente.")
+                f"[LINKEDIN] Teto global de {self._MAX_REQUESTS_POR_EXECUCAO} requests atingido. Parando graciosamente."
+            )
             return True
         return False
 
     def _circuit_breaker_aberto(self) -> bool:
         if self._erros_consecutivos >= self._MAX_ERROS_CONSECUTIVOS:
             logger.error(
-                f"[LINKEDIN] Circuit breaker aberto: {
-                    self._erros_consecutivos} erros consecutivos. Abortando para evitar ban.")
+                f"[LINKEDIN] Circuit breaker aberto: {self._erros_consecutivos} erros consecutivos. Abortando para evitar ban."
+            )
             return True
         return False
 
@@ -354,8 +354,10 @@ class LinkedinScraper(BaseScraper):
 
         taxa = 1 - (self._requests_com_sucesso / self._requests_realizados)
         if taxa > self._TAXA_ERRO_CRITICA:
-            minutos = self._PAUSA_RECUPERACAO / 60
-            logger.warning(f"[LINKEDIN] Taxa de erro {taxa:.1%} acima do limiar ({self._TAXA_ERRO_CRITICA:.0%}). Pausa de recuperação de {minutos:.0f} minutos...")
+            logger.warning(
+                f"[LINKEDIN] Taxa de erro {taxa:.1%} acima do limiar ({self._TAXA_ERRO_CRITICA:.0%}). "
+                f"Pausa de recuperação de {self._PAUSA_RECUPERACAO / 60:.0f} minutos..."
+            )
             time.sleep(self._PAUSA_RECUPERACAO)
             self._erros_consecutivos = 0
 
@@ -696,8 +698,8 @@ class LinkedinScraper(BaseScraper):
 
             if not response:
                 logger.warning(
-                    f"[LINKEDIN] Paginação interrompida na página {
-                        pagina + 1}")
+                    f"[LINKEDIN] Paginação interrompida na página {pagina + 1}"
+                )
                 break
 
             vagas_pagina = self._extrair_vagas_da_pagina(
@@ -705,9 +707,8 @@ class LinkedinScraper(BaseScraper):
 
             if not vagas_pagina:
                 logger.info(
-                    f"[LINKEDIN] Página {
-                        pagina +
-                        1} vazia — fim dos resultados")
+                    f"[LINKEDIN] Página {pagina + 1} vazia — fim dos resultados"
+                )
                 break
 
             todas_vagas.extend(vagas_pagina)
@@ -732,8 +733,8 @@ class LinkedinScraper(BaseScraper):
 
         rotulo_log = modalidade_rotulo or 'todas'
         logger.info(
-            f"[LINKEDIN] '{palavra_chave}' ({rotulo_log}): {
-                len(todas_vagas)} vagas coletadas")
+            f"[LINKEDIN] '{palavra_chave}' ({rotulo_log}): {len(todas_vagas)} vagas coletadas"
+        )
 
         self._delay_gaussiano(
             self._DELAY_ENTRE_KEYWORDS_MEDIA,
