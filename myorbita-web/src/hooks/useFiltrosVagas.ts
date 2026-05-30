@@ -1,5 +1,5 @@
-import { useState, useMemo, useEffect } from 'react';
-import type { IVaga } from '../types/IVaga';
+import { useState, useMemo, useEffect } from "react";
+import type { IVaga } from "../types/IVaga";
 
 /**
  * Sentinelas de "valor ausente" usados pelo scraper quando não consegue extrair
@@ -64,7 +64,9 @@ const REGEX_NIVEL: Record<string, RegExp> = {
  * Vagas sem nível explícito aparecem em qualquer filtro de nível ativo.
  */
 const tituloMencionaAlgumNivel = (tituloNormalizado: string): boolean => {
-  return Object.values(REGEX_NIVEL).some((regex) => regex.test(tituloNormalizado));
+  return Object.values(REGEX_NIVEL).some((regex) =>
+    regex.test(tituloNormalizado),
+  );
 };
 
 /**
@@ -147,7 +149,7 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
             limparParaBusca(vaga.state),
             limparParaBusca(vaga.tipo_contrato),
             limparParaBusca(vaga.modalidade),
-          ].join(" ")
+          ].join(" "),
         );
         return termosBusca.every((termo) => textoVaga.includes(termo));
       });
@@ -182,7 +184,6 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
         return filtrosEstado.includes(v.state!);
       });
     }
-
     // 5. Tipo de contrato (multi-select OR + permissivo)
     if (filtrosContrato.length > 0) {
       resultado = resultado.filter((v) => {
@@ -199,14 +200,18 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
     // 7. Origem (multi-select OR — SEM permissividade, sempre preenchida)
     if (filtrosOrigem.length > 0) {
       resultado = resultado.filter((v) =>
-        v.origem ? filtrosOrigem.includes(v.origem) : false
+        v.origem ? filtrosOrigem.includes(v.origem) : false,
       );
     }
 
     // 8. Ordenação por data — sem data vai pro fim
     resultado.sort((a, b) => {
-      const dA = a.data_publicacao ? new Date(a.data_publicacao).getTime() : null;
-      const dB = b.data_publicacao ? new Date(b.data_publicacao).getTime() : null;
+      const dA = a.data_publicacao
+        ? new Date(a.data_publicacao).getTime()
+        : null;
+      const dB = b.data_publicacao
+        ? new Date(b.data_publicacao).getTime()
+        : null;
       if (dA === null && dB === null) return 0;
       if (dA === null) return 1;
       if (dB === null) return -1;
@@ -241,7 +246,10 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
   ]);
 
   // --- Paginação ---
-  const totalPaginas = Math.max(1, Math.ceil(vagasFiltradas.length / VAGAS_POR_PAGINA));
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(vagasFiltradas.length / VAGAS_POR_PAGINA),
+  );
 
   const vagasPagina = useMemo(() => {
     const inicio = (paginaAtual - 1) * VAGAS_POR_PAGINA;
@@ -251,7 +259,11 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
 
   const paginasVisiveis = () => {
     const pages: number[] = [];
-    for (let i = Math.max(1, paginaAtual - 2); i <= Math.min(totalPaginas, paginaAtual + 2); i++) {
+    for (
+      let i = Math.max(1, paginaAtual - 2);
+      i <= Math.min(totalPaginas, paginaAtual + 2);
+      i++
+    ) {
       pages.push(i);
     }
     return pages;
@@ -337,19 +349,31 @@ export function useFiltrosVagas(vagasIniciais: IVaga[]) {
   };
 
   return {
-    busca, setBusca,
-    ordenacao, setOrdenacao,
-    filtrosModalidade, setFiltrosModalidade,
-    filtrosNivel, setFiltrosNivel,
-    filtrosEstado, setFiltrosEstado,
-    filtrosContrato, setFiltrosContrato,
-    filtrosOrigem, setFiltrosOrigem,
-    filtroPcd, setFiltroPcd,
+    busca,
+    setBusca,
+    ordenacao,
+    setOrdenacao,
+    filtrosModalidade,
+    setFiltrosModalidade,
+    filtrosNivel,
+    setFiltrosNivel,
+    filtrosEstado,
+    setFiltrosEstado,
+    filtrosContrato,
+    setFiltrosContrato,
+    filtrosOrigem,
+    setFiltrosOrigem,
+    filtroPcd,
+    setFiltroPcd,
     estadosDisponiveis,
     contratosDisponiveis,
     origensDisponiveis,
-    paginaAtual, setPaginaAtual,
-    vagasFiltradas, vagasPagina, totalPaginas, paginasVisiveis,
+    paginaAtual,
+    setPaginaAtual,
+    vagasFiltradas,
+    vagasPagina,
+    totalPaginas,
+    paginasVisiveis,
     filtrosAtivos,
     totalFiltrosAtivos,
     limparFiltros,
