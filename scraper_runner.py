@@ -19,8 +19,10 @@ Toda a plumbing fica aqui, DRY ao máximo.
 import json
 import logging
 import os
+import re
 import sys
 import time
+import unicodedata
 from typing import Protocol
 
 import firebase_admin
@@ -160,6 +162,62 @@ def exibir_info_configuracoes(parametros: dict, plataforma: str):
 
 
 # ============================================================
+# FILTRO DE RELEVÂNCIA — protege contra resultados degradados do LinkedIn
+# ============================================================
+
+def _normalizar_para_filtro(texto: str) -> str:
+    """Remove acentos, pontuação e converte para minúsculas."""
+    sem_acento = unicodedata.normalize('NFD', texto).encode('ascii', 'ignore').decode('utf-8')
+    return re.sub(r'[^a-z0-9]', ' ', sem_acento.lower())
+
+
+def _termos_da_keyword(keyword: str, min_len: int = 2) -> list[str]:
+    """
+    Extrai palavras significativas da keyword (>= min_len chars).
+    Ex: 'Desenvolvedor Front-end' → ['desenvolvedor', 'front', 'end']
+        'C#' → []  (sem termos válidos → filtro desativado para esta keyword)
+    """
+    return [w for w in _normalizar_para_filtro(keyword).split() if len(w) >= min_len]
+
+
+def _filtrar_por_relevancia(vagas: list, termos_keyword: list[str]) -> tuple[list, int]:
+    """
+    Rejeita vagas cujo título não contém nenhum termo da keyword que as gerou.
+
+    Termos curtos (≤ 3 chars: 'ti', 'qa', 'aws') usam match de palavra inteira
+    para não casar como substring de outra palavra (ex: 'ti' em 'marketing').
+    Termos longos usam substring — mais rápido e suficientemente preciso.
+
+    Keywords sem termos válidos (ex: 'C', 'C#') desativam o filtro e aceitam tudo.
+    """
+    if not termos_keyword:
+        return vagas, 0
+
+    aceitas = []
+    rejeitadas = 0
+
+    for vaga in vagas:
+        titulo_norm = _normalizar_para_filtro(vaga.get('titulo') or '')
+        titulo_padded = f' {titulo_norm} '
+
+        encontrou = any(
+            (f' {t} ' in titulo_padded) if len(t) <= 3 else (t in titulo_norm)
+            for t in termos_keyword
+        )
+
+        if encontrou:
+            aceitas.append(vaga)
+        else:
+            rejeitadas += 1
+            logger.warning(
+                f"[RELEVÂNCIA] Fora do escopo — '{vaga.get('titulo', '?')}' "
+                f"(nenhum termo de '{' '.join(termos_keyword)}' no título)"
+            )
+
+    return aceitas, rejeitadas
+
+
+# ============================================================
 # DEDUPLICAÇÃO 3 NÍVEIS
 # ============================================================
 def filtrar_duplicadas(vagas: list, urls_vistas: set, ids_firebase: set) -> tuple:
@@ -207,10 +265,12 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, ids_firebase: se
     total_combinacoes = 0
     total_duplicadas = 0
     total_ja_no_firebase = 0
+    total_fora_escopo = 0
     inicio = time.time()
     keywords_desde_checkpoint = 0
 
     for palavra in parametros['palavras_chave']:
+        termos_keyword = _termos_da_keyword(palavra)
         for modalidade in parametros['modalidades']:
             total_combinacoes += 1
 
@@ -223,6 +283,11 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, ids_firebase: se
             )
             total_duplicadas += duplicadas
             total_ja_no_firebase += ja_firebase
+
+            vagas_novas, n_fora_escopo = _filtrar_por_relevancia(vagas_novas, termos_keyword)
+            total_fora_escopo += n_fora_escopo
+            if n_fora_escopo:
+                logger.warning(f"  🚫 {n_fora_escopo} vaga(s) fora do escopo rejeitada(s).")
 
             if vagas_novas:
                 logger.info(f"  ✅ {len(vagas_novas)} vagas únicas adicionadas.")
@@ -248,6 +313,7 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, ids_firebase: se
         'total_combinacoes': total_combinacoes,
         'total_duplicadas': total_duplicadas,
         'total_ja_no_firebase': total_ja_no_firebase,
+        'total_fora_escopo': total_fora_escopo,
         'duracao_segundos': duracao,
     }
 
@@ -266,6 +332,7 @@ def finalizar_scraping(resultados: dict, rota: str):
     logger.info(f"  • Vagas únicas coletadas: {total_vagas}")
     logger.info(f"  • Duplicadas ignoradas (intra-scraping): {resultados['total_duplicadas']}")
     logger.info(f"  • Já existentes no Firebase: {resultados['total_ja_no_firebase']}")
+    logger.info(f"  • Fora do escopo rejeitadas: {resultados.get('total_fora_escopo', 0)}")
     logger.info(f"  • Duração: {duracao / 60:.1f} minutos ({duracao:.0f}s)")
 
     if total_vagas > 0:
