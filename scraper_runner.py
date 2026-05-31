@@ -95,22 +95,23 @@ def inicializar_firebase():
         logger.info("Conexão com Firebase inicializada com sucesso!")
 
 
-def carregar_ids_firebase(rota: str) -> set:
+def carregar_snapshot_firebase(rota: str) -> dict:
     """
-    Carrega IDs de vagas já existentes no Firebase antes do scraping.
-    Retorna set para lookup O(1) durante dedup.
+    Carrega snapshot completo do Firebase antes do scraping.
+    Usado para deduplicação (set de IDs) e para preservar campos já
+    enriquecidos pelo enricher (tipo_contrato) que o ref.set() do scraper
+    sobrescreveria com 'Não informado'.
     """
     try:
         ref = db.reference(rota)
         snapshot = ref.get()
         if snapshot and isinstance(snapshot, dict):
-            ids = set(snapshot.keys())
-            logger.info(f"Cache Firebase: {len(ids)} vagas já existentes em '{rota}'")
-            return ids
-        return set()
+            logger.info(f"Cache Firebase: {len(snapshot)} vagas já existentes em '{rota}'")
+            return snapshot
+        return {}
     except Exception as e:
         logger.warning(f"Falha ao carregar cache do Firebase '{rota}': {e}")
-        return set()
+        return {}
 
 
 def enviar_para_firebase(lista_vagas: list, rota: str):
@@ -251,7 +252,7 @@ def filtrar_duplicadas(vagas: list, urls_vistas: set, ids_firebase: set) -> tupl
 # ============================================================
 # LOOP PRINCIPAL DE BUSCAS
 # ============================================================
-def executar_buscas(scraper: ScraperProtocol, parametros: dict, ids_firebase: set, rota: str) -> dict:
+def executar_buscas(scraper: ScraperProtocol, parametros: dict, snapshot_firebase: dict, rota: str) -> dict:
     """
     Loop de buscas: itera palavras × modalidades, aplica dedup,
     faz checkpoint no Firebase a cada 10 keywords e retorna agregado.
@@ -260,6 +261,7 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, ids_firebase: se
     no GitHub Actions não perde mais de ~10 keywords de progresso.
     O ref.set() final em finalizar_scraping entrega o snapshot completo.
     """
+    ids_firebase = set(snapshot_firebase.keys())
     urls_vistas = set()
     todas_as_vagas = []
     total_combinacoes = 0
@@ -288,6 +290,15 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, ids_firebase: se
             total_fora_escopo += n_fora_escopo
             if n_fora_escopo:
                 logger.warning(f"  🚫 {n_fora_escopo} vaga(s) fora do escopo rejeitada(s).")
+
+            # Preserva tipo_contrato já enriquecido pelo enricher.
+            # O ref.set() do scraper sobrescreveria com "Não informado" sem este passo.
+            for vaga in vagas_novas:
+                existente = snapshot_firebase.get(vaga['id'])
+                if existente:
+                    tipo_existente = existente.get('tipo_contrato', 'Não informado')
+                    if tipo_existente not in ('Não informado', '', None):
+                        vaga['tipo_contrato'] = tipo_existente
 
             if vagas_novas:
                 logger.info(f"  ✅ {len(vagas_novas)} vagas únicas adicionadas.")
@@ -384,9 +395,9 @@ def executar(scraper: ScraperProtocol, plataforma: str, categorias: dict):
         parametros = extrair_parametros(config)
         exibir_info_configuracoes(parametros, plataforma)
 
-        ids_firebase = carregar_ids_firebase(categoria['rota'])
+        snapshot_firebase = carregar_snapshot_firebase(categoria['rota'])
 
-        resultados = executar_buscas(scraper, parametros, ids_firebase, categoria['rota'])
+        resultados = executar_buscas(scraper, parametros, snapshot_firebase, categoria['rota'])
         finalizar_scraping(resultados, categoria['rota'])
 
     duracao_total = time.time() - inicio_total
