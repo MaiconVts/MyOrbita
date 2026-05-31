@@ -35,7 +35,7 @@ jobs:
         env:
           FIREBASE_KEY_PATH: secrets/firebase_key.json
           FIREBASE_DB_URL: ${{ secrets.FIREBASE_DB_URL }}
-        run: python main_linkedin_enrich.py
+        run: python main_linkedin_enricher.py
 
       - name: Upload do log (sempre, mesmo em falha)
         if: always()

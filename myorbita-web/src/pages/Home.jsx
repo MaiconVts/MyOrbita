@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+// import { Link } from "react-router-dom";
 import { Scale, Code2 } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import CardVagas from "../components/CardVagas";
