@@ -53,7 +53,7 @@ from urllib.parse import quote_plus
 from curl_cffi import requests as cffi_requests
 from lxml import html as lxml_html
 
-from .base_scraper import BaseScraper
+from .base_scraper import BaseScraper, ESTADOS_SIGLAS
 
 logger = logging.getLogger(__name__)
 
@@ -71,40 +71,204 @@ MODALIDADE_MAP = {
     'hibrido': 'Híbrido',
 }
 _CIDADE_PARA_UF = {
+    # SP
     'são paulo': 'SP',
-    'rio de janeiro': 'RJ',
-    'belo horizonte': 'MG',
-    'curitiba': 'PR',
-    'porto alegre': 'RS',
-    'salvador': 'BA',
-    'fortaleza': 'CE',
-    'recife': 'PE',
-    'manaus': 'AM',
-    'belém': 'PA',
-    'goiânia': 'GO',
-    'florianópolis': 'SC',
-    'brasília': 'DF',
     'campinas': 'SP',
     'guarulhos': 'SP',
     'são bernardo do campo': 'SP',
     'santo andré': 'SP',
     'osasco': 'SP',
+    'sorocaba': 'SP',
+    'ribeirão preto': 'SP',
+    'são josé dos campos': 'SP',
+    'santos': 'SP',
+    'mogi das cruzes': 'SP',
+    'diadema': 'SP',
+    'jundiaí': 'SP',
+    'piracicaba': 'SP',
+    'carapicuíba': 'SP',
+    'bauru': 'SP',
+    'são josé do rio preto': 'SP',
+    'mauá': 'SP',
+    'limeira': 'SP',
+    'franca': 'SP',
+    'itaquaquecetuba': 'SP',
+    'suzano': 'SP',
+    'taboão da serra': 'SP',
+    'barueri': 'SP',
+    'cotia': 'SP',
+    'americana': 'SP',
+    'taubaté': 'SP',
+    'marília': 'SP',
+    'presidente prudente': 'SP',
+    'são caetano do sul': 'SP',
+    'araraquara': 'SP',
+    'hortolândia': 'SP',
+    'indaiatuba': 'SP',
+    'embu das artes': 'SP',
+    'rio claro': 'SP',
+    # RJ
+    'rio de janeiro': 'RJ',
+    'niterói': 'RJ',
+    'nova iguaçu': 'RJ',
+    'duque de caxias': 'RJ',
+    'belford roxo': 'RJ',
+    'são gonçalo': 'RJ',
+    'campos dos goytacazes': 'RJ',
+    'petrópolis': 'RJ',
+    'volta redonda': 'RJ',
+    'nova friburgo': 'RJ',
+    'angra dos reis': 'RJ',
+    'macaé': 'RJ',
+    # MG
+    'belo horizonte': 'MG',
     'uberlândia': 'MG',
     'contagem': 'MG',
+    'juiz de fora': 'MG',
+    'betim': 'MG',
+    'montes claros': 'MG',
+    'ribeirão das neves': 'MG',
+    'uberaba': 'MG',
+    'governador valadares': 'MG',
+    'ipatinga': 'MG',
+    'sete lagoas': 'MG',
+    'divinópolis': 'MG',
+    'santa luzia': 'MG',
+    'ibirité': 'MG',
+    'poços de caldas': 'MG',
+    'patos de minas': 'MG',
+    'pouso alegre': 'MG',
+    'teófilo otoni': 'MG',
+    'varginha': 'MG',
+    'coronel fabriciano': 'MG',
+    'nova lima': 'MG',
+    'lavras': 'MG',
+    'ubá': 'MG',
+    'muriaé': 'MG',
+    'viçosa': 'MG',
+    'itabira': 'MG',
+    'conselheiro lafaiete': 'MG',
+    'barbacena': 'MG',
+    # RS
+    'porto alegre': 'RS',
+    'caxias do sul': 'RS',
+    'pelotas': 'RS',
+    'canoas': 'RS',
+    'santa maria': 'RS',
+    'gravataí': 'RS',
+    'viamão': 'RS',
+    'novo hamburgo': 'RS',
+    'são leopoldo': 'RS',
+    'rio grande': 'RS',
+    'alvorada': 'RS',
+    'passo fundo': 'RS',
+    'sapucaia do sul': 'RS',
+    'uruguaiana': 'RS',
+    'santa cruz do sul': 'RS',
+    'cachoeirinha': 'RS',
+    'bento gonçalves': 'RS',
+    # PR
+    'curitiba': 'PR',
+    'londrina': 'PR',
+    'maringá': 'PR',
+    'ponta grossa': 'PR',
+    'cascavel': 'PR',
+    'são josé dos pinhais': 'PR',
+    'foz do iguaçu': 'PR',
+    'colombo': 'PR',
+    'guarapuava': 'PR',
+    'paranaguá': 'PR',
+    'araucária': 'PR',
+    'toledo': 'PR',
+    'apucarana': 'PR',
+    # BA
+    'salvador': 'BA',
+    'feira de santana': 'BA',
+    'vitória da conquista': 'BA',
+    'camaçari': 'BA',
+    'juazeiro': 'BA',
+    'itabuna': 'BA',
+    'lauro de freitas': 'BA',
+    'ilhéus': 'BA',
+    'barreiras': 'BA',
+    'porto seguro': 'BA',
+    # CE
+    'fortaleza': 'CE',
+    'caucaia': 'CE',
+    'juazeiro do norte': 'CE',
+    'maracanaú': 'CE',
+    'sobral': 'CE',
+    'crato': 'CE',
+    # PE
+    'recife': 'PE',
+    'caruaru': 'PE',
+    'olinda': 'PE',
+    'petrolina': 'PE',
+    'paulista': 'PE',
+    'jaboatão dos guararapes': 'PE',
+    'cabo de santo agostinho': 'PE',
+    'camaragibe': 'PE',
+    # AM
+    'manaus': 'AM',
+    # PA
+    'belém': 'PA',
+    'ananindeua': 'PA',
+    'santarém': 'PA',
+    'marabá': 'PA',
+    # GO
+    'goiânia': 'GO',
+    'aparecida de goiânia': 'GO',
+    'anápolis': 'GO',
+    # SC
+    'florianópolis': 'SC',
+    'joinville': 'SC',
+    'blumenau': 'SC',
+    'chapecó': 'SC',
+    'criciúma': 'SC',
+    'itajaí': 'SC',
+    'lages': 'SC',
+    'palhoça': 'SC',
+    'são josé': 'SC',
+    # DF
+    'brasília': 'DF',
+    # ES
     'vitória': 'ES',
+    'vila velha': 'ES',
+    'serra': 'ES',
+    'cariacica': 'ES',
+    'cachoeiro de itapemirim': 'ES',
+    # RN
     'natal': 'RN',
+    'mossoró': 'RN',
+    # AL
     'maceió': 'AL',
+    'arapiraca': 'AL',
+    # PI
     'teresina': 'PI',
+    # MS
     'campo grande': 'MS',
+    'dourados': 'MS',
+    # PB
     'joão pessoa': 'PB',
+    'campina grande': 'PB',
+    # SE
     'aracaju': 'SE',
+    # RO
     'porto velho': 'RO',
+    # MT
     'cuiabá': 'MT',
+    'várzea grande': 'MT',
+    # AP
     'macapá': 'AP',
+    # RR
     'boa vista': 'RR',
+    # TO
     'palmas': 'TO',
+    # AC
     'rio branco': 'AC',
+    # MA
     'são luís': 'MA',
+    'imperatriz': 'MA',
 }
 TIPO_CONTRATO_MAP = {
     # JSON-LD (uppercase)
@@ -474,17 +638,24 @@ class LinkedinScraper(BaseScraper):
         if len(partes) >= 3:
             return partes[0], partes[1], partes[2]
 
-        # Caso 2: 2 partes — pode ser "Cidade, UF" ou "Cidade, Brasil"
+        # Caso 2: 2 partes — pode ser "Cidade, UF", "Estado, País" ou "Cidade, País"
         if len(partes) == 2:
             if self._eh_nome_pais(partes[1]):
+                # Primeiro verifica se partes[0] é nome de estado (ex: "Minas Gerais, Brasil")
+                estado_sigla = ESTADOS_SIGLAS.get(partes[0])
+                if estado_sigla:
+                    return None, estado_sigla, partes[1]
                 city = partes[0]
                 state = _CIDADE_PARA_UF.get(city.lower().strip())
                 return city, state, partes[1]
             return partes[0], partes[1], None
 
-        # Caso 3: 1 parte — pode ser só país ou só cidade
+        # Caso 3: 1 parte — pode ser país, estado ou cidade
         if self._eh_nome_pais(partes[0]):
             return None, None, partes[0]
+        estado_sigla = ESTADOS_SIGLAS.get(partes[0])
+        if estado_sigla:
+            return None, estado_sigla, None
         return partes[0], None, None
 
     def _inferir_modalidade(self, localizacao_raw: str | None) -> str:

@@ -122,8 +122,8 @@ export function useFiltrosVagas(vagasIniciais) {
   //
   // PERMISSIVIDADE em campos sujeiráveis:
   // Vagas com campo ausente passam em QUALQUER seleção daquele filtro.
-  // Aplicada em: modalidade, estado, contrato, nível.
-  // NÃO aplicada em: PCD (boolean), origem (sempre preenchida).
+  // Aplicada em: modalidade, contrato, nível.
+  // NÃO aplicada em: estado (UF), PCD (boolean), origem (sempre preenchida).
   const vagasFiltradas = useMemo(() => {
     let resultado = [...vagasIniciais];
 
@@ -167,10 +167,10 @@ export function useFiltrosVagas(vagasIniciais) {
       });
     }
 
-    // 4. Estado/UF (multi-select OR + permissivo)
+    // 4. Estado/UF (multi-select OR — sem permissividade: estado desconhecido é excluído)
     if (filtrosEstado.length > 0) {
       resultado = resultado.filter((v) => {
-        if (estaAusente(v.state)) return true;
+        if (estaAusente(v.state)) return false;
         return filtrosEstado.includes(v.state);
       });
     }
