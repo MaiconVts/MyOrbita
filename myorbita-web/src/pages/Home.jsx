@@ -8,6 +8,7 @@ import PoliticaPrivacidade from "../components/modals/PoliticaPrivacidade";
 import Sobre from "../components/modals/Sobre";
 import ComoUsar from "../components/modals/ComoUsar";
 import ComoFunciona from "../components/modals/ComoFunciona";
+import CreditoDesenvolvedor from "../components/CreditoDesenvolvedor";
 
 const linksFooter = [
   { label: 'Termos de Uso', id: 'termos' },
@@ -100,6 +101,8 @@ export default function Home() {
               </span>
             ))}
           </div>
+
+          <CreditoDesenvolvedor className="mt-2 text-[#4a4a6a]" linkClassName="hover:text-[#A0AEC0]" />
         </div>
 
       </div>
