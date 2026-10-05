@@ -94,7 +94,7 @@ export default function Rodape() {
           <a className="credito" href="https://maicontheodoro-dev.vercel.app" target="_blank" rel="noopener">
             <img src={mtIcon} alt="" width="20" height="20" />
             <span>
-              Desenvolvido por <strong>maicontheodoro-dev</strong>
+              Desenvolvido por <span className="credito__nome">maicontheodoro-dev</span>
               <span className="so-leitor"> (abre em nova aba)</span>
             </span>
           </a>

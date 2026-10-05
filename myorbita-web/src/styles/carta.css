@@ -1190,6 +1190,11 @@ a.rota:focus-visible { outline: 2px solid var(--luz); outline-offset: 3px; }
   text-decoration: none;
   transition: color var(--dur-rapida) var(--ease-saida);
 }
+.credito__nome {
+  font-weight: 500;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
 .credito img,
 .credito__icone {
   width: --spacing(5);
@@ -1199,6 +1204,9 @@ a.rota:focus-visible { outline: 2px solid var(--luz); outline-offset: 3px; }
   .rodape__item:hover,
   .credito:hover {
     color: var(--color-tinta);
+  }
+  .credito:hover .credito__nome {
+    text-decoration-thickness: 2px;
   }
 }
 @media (max-width: 52em) {
