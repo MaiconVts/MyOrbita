@@ -1,228 +1,77 @@
-import { MapPin, Briefcase, Accessibility, Clock } from 'lucide-react';
-
-function formatarData(iso) {
-  if (!iso) return '—';
-  try { return new Date(iso).toLocaleDateString('pt-BR'); }
-  catch { return iso; }
-}
+import { MapPin, Briefcase, Accessibility, Clock, ArrowUpRight } from "lucide-react";
+import Modal from "./Modal";
+import { estaAusente, formatarData, formatarLocalizacao, statusPrazo } from "../utils/vagas";
 
 /**
- * Verifica se um campo opcional tem valor útil (não nulo, não vazio, não "Não informado").
+ * Detalhe de uma vaga. `luz` é a luz da modalidade (tech, adv ou neutra),
+ * calculada por quem abre o detalhe, para seguir a mesma regra da lista.
  */
-function campoValido(valor) {
-  if (valor === undefined || valor === null) return false;
-  if (typeof valor === 'boolean') return true;
-  return valor.trim() !== '' && valor !== 'Não informado';
-}
+export default function VagaDetalhe({ vaga, onClose, luz = "neutra" }) {
+  const local = formatarLocalizacao(vaga.city, vaga.state);
+  const prazo = estaAusente(vaga.prazo_inscricao) ? null : statusPrazo(vaga.prazo_inscricao);
 
-/**
- * Calcula o status do prazo e retorna cor + texto adequados.
- */
-function statusPrazo(prazo) {
-  const hoje = new Date();
-  const dataPrazo = new Date(prazo);
-  const diasRestantes = Math.ceil((dataPrazo.getTime() - hoje.getTime()) / (1000 * 60 * 60 * 24));
-
-  if (diasRestantes < 0) return { cor: '#F87171', texto: 'Expirada' };
-  if (diasRestantes <= 7) return { cor: '#FFB703', texto: `${diasRestantes} dia${diasRestantes !== 1 ? 's' : ''} restante${diasRestantes !== 1 ? 's' : ''}` };
-  return { cor: '#34D399', texto: formatarData(prazo) };
-}
-
-const modalidadeCor = {
-  Remoto: '#4FC3F7',
-  Híbrido: '#FFB703',
-  Presencial: '#FFFFFF',
-};
-
-const contratoCor = {
-  CLT: '#4FC3F7',
-  PJ: '#FFB703',
-  Estágio: '#A78BFA',
-  'Jovem Aprendiz': '#34D399',
-  Temporário: '#F87171',
-  Freelancer: '#FB923C',
-  Autônomo: '#FB923C',
-  'Banco de Talentos': '#94A3B8',
-};
-
-export default function VagaDetalhe({ vaga, onClose }) {
-  const cor = modalidadeCor[vaga.modalidade] ?? '#FFFFFF';
-
-  // Monta localização legível
-  const temCidade = campoValido(vaga.city);
-  const temEstado = campoValido(vaga.state);
-  const localizacao = temCidade && temEstado
-    ? `${vaga.city}, ${vaga.state}`
-    : temCidade ? vaga.city
-    : temEstado ? vaga.state
-    : null;
-
-  // Status do prazo
-  const prazo = campoValido(vaga.prazo_inscricao) ? statusPrazo(vaga.prazo_inscricao) : null;
-
-  // Campos estruturados para o grid de informações
   const campos = [
-    { label: 'EMPRESA', value: vaga.empresa },
-    { label: 'MODALIDADE', value: vaga.modalidade, color: cor },
-    { label: 'PUBLICADO', value: formatarData(vaga.data_publicacao) },
-    { label: 'ORIGEM', value: vaga.origem },
+    { rotulo: "Empresa", valor: vaga.empresa },
+    { rotulo: "Modalidade", valor: vaga.modalidade, luz },
+    { rotulo: "Publicado", valor: formatarData(vaga.data_publicacao), mono: true },
+    { rotulo: "Origem", valor: vaga.origem },
   ];
 
   return (
-    <div
-      style={{
-        position: 'fixed', inset: 0,
-        background: 'rgba(0,0,0,0.75)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        zIndex: 1000,
-        padding: '24px',
-      }}
-      onClick={onClose}
-    >
-      <div
-        style={{
-          width: '100%', maxWidth: '560px',
-          background: 'rgba(10,5,30,0.95)',
-          border: '1px solid rgba(255,255,255,0.12)',
-          borderRadius: '20px',
-          backdropFilter: 'blur(24px)',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.6)',
-          padding: '32px',
-          position: 'relative',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Botão fechar */}
-        <button
-          onClick={onClose}
-          style={{
-            position: 'absolute', top: '20px', right: '20px',
-            background: 'rgba(255,255,255,0.07)',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: '8px',
-            color: '#A0AEC0', cursor: 'pointer',
-            width: '32px', height: '32px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '16px', lineHeight: 1,
-          }}
-        >
-          ×
-        </button>
-
-        {/* Título */}
-        <h2 style={{
-          fontSize: '22px', fontWeight: 700,
-          color: '#FFFFFF', marginBottom: '20px',
-          paddingRight: '40px', lineHeight: 1.3,
-          fontFamily: "'Space Grotesk', sans-serif",
-        }}>
-          {vaga.titulo}
-        </h2>
-
-        {/* Campos principais */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-          {campos.map(({ label, value, color }) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-              <span style={{
-                fontSize: '10px', fontWeight: 600, letterSpacing: '0.15em',
-                color: '#4a4a6a', minWidth: '90px', textTransform: 'uppercase',
-              }}>
-                {label}
-              </span>
-              <span style={{ fontSize: '15px', color: color ?? '#FFFFFF', fontWeight: 400 }}>
-                {value}
-              </span>
+    <Modal titulo={vaga.titulo} onClose={onClose}>
+      <dl className="detalhe__campos">
+        {campos.map(({ rotulo, valor, luz: luzCampo, mono }) => {
+          const ausente = estaAusente(valor);
+          return (
+            <div key={rotulo} className="detalhe__campo">
+              <dt className="voz-rotulo">{rotulo}</dt>
+              <dd
+                className={[
+                  ausente ? "dado-ausente" : "",
+                  luzCampo ? `luz-${luzCampo}` : "",
+                  mono && !ausente ? "voz-coordenada" : "",
+                ].join(" ")}
+              >
+                {ausente ? "Não informado" : valor}
+              </dd>
             </div>
-          ))}
-        </div>
+          );
+        })}
+      </dl>
 
-        {/* Badges informativos */}
-        <div style={{
-          display: 'flex', flexWrap: 'wrap', gap: '8px',
-          marginBottom: '24px',
-          paddingTop: '16px',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-        }}>
-          {/* Localização */}
-          {localizacao && (
-            <span style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              fontSize: '12px', color: '#A0AEC0',
-              background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.08)',
-              borderRadius: '8px', padding: '6px 12px',
-            }}>
-              <MapPin size={12} />
-              {localizacao}
-            </span>
-          )}
+      <ul className="detalhe__selos" aria-label="Detalhes da vaga">
+        {!local.ausente && (
+          <li className="selo">
+            <MapPin size={14} strokeWidth={1.5} aria-hidden="true" />
+            {local.texto}
+          </li>
+        )}
+        {!estaAusente(vaga.tipo_contrato) && (
+          <li className="selo">
+            <Briefcase size={14} strokeWidth={1.5} aria-hidden="true" />
+            {vaga.tipo_contrato}
+          </li>
+        )}
+        {vaga.pcd && (
+          <li className="selo">
+            <Accessibility size={14} strokeWidth={1.5} aria-hidden="true" />
+            PCD
+          </li>
+        )}
+        {prazo && (
+          <li className={`selo selo--prazo-${prazo.estado}`}>
+            <Clock size={14} strokeWidth={1.5} aria-hidden="true" />
+            <span className="so-leitor">Prazo de inscrição: </span>
+            {prazo.texto}
+          </li>
+        )}
+      </ul>
 
-          {/* Tipo de contrato */}
-          {campoValido(vaga.tipo_contrato) && (
-            <span style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              fontSize: '12px', fontWeight: 600,
-              color: contratoCor[vaga.tipo_contrato] ?? '#94A3B8',
-              background: `${contratoCor[vaga.tipo_contrato] ?? '#94A3B8'}15`,
-              border: `1px solid ${contratoCor[vaga.tipo_contrato] ?? '#94A3B8'}30`,
-              borderRadius: '8px', padding: '6px 12px',
-            }}>
-              <Briefcase size={12} />
-              {vaga.tipo_contrato}
-            </span>
-          )}
-
-          {/* PCD */}
-          {vaga.pcd && (
-            <span style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              fontSize: '12px', fontWeight: 600,
-              color: '#34D399',
-              background: 'rgba(52,211,153,0.15)',
-              border: '1px solid rgba(52,211,153,0.3)',
-              borderRadius: '8px', padding: '6px 12px',
-            }}>
-              <Accessibility size={12} />
-              PCD
-            </span>
-          )}
-
-          {/* Prazo de inscrição */}
-          {prazo && (
-            <span style={{
-              display: 'flex', alignItems: 'center', gap: '5px',
-              fontSize: '12px', fontWeight: 600,
-              color: prazo.cor,
-              background: `${prazo.cor}15`,
-              border: `1px solid ${prazo.cor}30`,
-              borderRadius: '8px', padding: '6px 12px',
-            }}>
-              <Clock size={12} />
-              {prazo.texto}
-            </span>
-          )}
-        </div>
-
-        {/* CTA */}
-        <a
-          href={vaga.link}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: 'block', width: '100%',
-            background: '#FFB703', color: '#050015',
-            textAlign: 'center', fontWeight: 700,
-            fontSize: '15px', padding: '14px',
-            borderRadius: '12px', textDecoration: 'none',
-            fontFamily: "'Space Grotesk', sans-serif",
-            transition: 'background 0.2s',
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = '#4FC3F7'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = '#FFB703'; }}
-        >
-          Ver Vaga Completa →
-        </a>
-      </div>
-    </div>
+      <a className="botao botao--rota detalhe__cta" href={vaga.link} target="_blank" rel="noopener noreferrer">
+        Ver Vaga Completa
+        <ArrowUpRight size={18} strokeWidth={1.75} aria-hidden="true" />
+        <span className="so-leitor"> (abre em nova aba)</span>
+      </a>
+    </Modal>
   );
 }

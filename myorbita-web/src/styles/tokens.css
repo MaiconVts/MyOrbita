@@ -1,0 +1,122 @@
+/*
+ * Tokens da Carta Estelar de Navegação.
+ * Fonte única de cor, tipo, espaço, raio, luz, vidro e motion.
+ * Os valores de motion têm espelho em src/constants/motion.js (framer-motion
+ * precisa deles em JS); mude os dois juntos.
+ */
+@theme {
+  /* Céu e velino */
+  --color-ceu: #0b0718;
+  --color-velino: #150f28;
+  --color-velino-alto: #1e1638;
+  --color-nebulosa: #510e2c;
+  /* Nebulosas do PlanetarySystem: roxa, ciano e laranja */
+  --color-nebulosa-roxa: #8a3cff;
+  --color-nebulosa-ciano: #00a8c6;
+  --color-nebulosa-laranja: #e0561c;
+
+  /* Duas luzes: rumo Tech (azul) e rumo Jurídico (âmbar, também a rota ativa) */
+  --color-tech: #4fc3f7;
+  --color-adv: #ffb703;
+  --color-rota: var(--color-adv);
+
+  /* Tinta sobre o velino */
+  --color-tinta: #f2ede3;
+  --color-tinta-suave: #c4bdd3;
+  --color-tinta-fraca: #9a92af;
+  --color-tinta-escura: #150f28;
+
+  /* Traço de carta: linhas de costa, rumos e grades */
+  --color-linha: color-mix(in oklch, var(--color-tech) 30%, transparent);
+  --color-linha-fraca: color-mix(in oklch, var(--color-tech) 12%, transparent);
+  --color-filete: color-mix(in oklch, var(--color-tinta) 12%, transparent);
+
+  /* Estados */
+  --color-sucesso: #6fd3a0;
+  --color-alerta: #ff9a8a;
+  --color-linkedin: #4ba3d9;
+
+  /* Tipografia */
+  /* Marca e títulos: Unbounded (a mesma do banner); corpo: Manrope */
+  --font-marca: "Unbounded Variable", "Segoe UI", system-ui, sans-serif;
+  --font-gravada: var(--font-marca);
+  --font-margem: "Manrope Variable", "Segoe UI", system-ui, sans-serif;
+  --font-corpo: "Manrope Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, "Cascadia Mono", monospace;
+
+  --text-marca-hero: clamp(2.75rem, 1rem + 8.4vw, 7.5rem);
+  --text-titulo-hero: clamp(2.25rem, 1.4rem + 3.6vw, 4.25rem);
+  --text-marca-header: clamp(1.25rem, 1.1rem + 0.4vw, 1.5rem);
+  --text-marca-rodape: clamp(1.75rem, 1.3rem + 1.6vw, 2.5rem);
+  --text-hero-sub: clamp(1.3rem, 0.95rem + 1.4vw, 2.125rem);
+  --text-titulo-secao: clamp(2rem, 1.4rem + 2.4vw, 3rem);
+  --text-titulo-placa: clamp(1.375rem, 1.2rem + 0.8vw, 1.75rem);
+  --text-numeral: clamp(2.75rem, 2rem + 3vw, 4.25rem);
+  --text-lede: clamp(1.0625rem, 1rem + 0.35vw, 1.25rem);
+  --text-margem: 1.0625rem;
+  --text-rotulo: 0.8125rem;
+
+  --tracking-gravada: -0.02em;
+  --tracking-marca: -0.035em;
+  --tracking-rotulo: 0.14em;
+  --leading-titulo: 1.04;
+
+  /* Layout */
+  --largura-max: 74rem;
+  --largura-texto: 68ch;
+  --altura-header: 4rem;
+
+  /* Raios */
+  --radius-placa: 0.875rem;
+  --radius-controle: 0.5rem;
+  --radius-pilula: 999px;
+
+  /* Profundidade: sempre com deslocamento e desfoque */
+  --shadow-placa: 0 1.25rem 2.5rem -1.25rem rgb(4 2 12 / 0.75);
+  --shadow-flutuante: 0 1.5rem 3.5rem -1rem rgb(4 2 12 / 0.85);
+
+  /* Motion: uma linguagem para o projeto inteiro */
+  --ease-saida: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-padrao: cubic-bezier(0.65, 0, 0.35, 1);
+  --animate-girar: girar 1s linear infinite;
+
+  @keyframes girar {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+
+:root {
+  --dur-instante: 120ms;
+  --dur-rapida: 200ms;
+  --dur-media: 360ms;
+  --dur-lenta: 720ms;
+  --dur-rota: 1100ms;
+  --dur-orbita: 48s;
+  --dur-satelite: 9s;
+  --dur-cintilar: 3.6s;
+  --dur-giro-vazio: 14s;
+
+  /* Vidro: placas sobre o céu vivo */
+  --glass-fundo: color-mix(in oklch, var(--color-velino) 64%, transparent);
+  --glass-fundo-denso: color-mix(in oklch, var(--color-velino) 92%, transparent);
+  --glass-borda: color-mix(in oklch, var(--color-tinta) 14%, transparent);
+  --glass-blur: 14px;
+
+  /* Luz: camada desfocada atrás do que importa */
+  --glow-blur: 72px;
+  --glow-tech: color-mix(in oklch, var(--color-tech) 34%, transparent);
+  --glow-adv: color-mix(in oklch, var(--color-adv) 30%, transparent);
+
+  --gutter: clamp(1rem, 0.5rem + 3vw, 2.5rem);
+  --secao-espaco: clamp(5rem, 3rem + 8vw, 10rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-media: 160ms;
+    --dur-lenta: 160ms;
+    --dur-rota: 0ms;
+  }
+}

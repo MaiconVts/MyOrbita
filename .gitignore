@@ -27,4 +27,28 @@ Thumbs.db
 # --- Logs ---
 scraper.log
 
-.claude/
+.claude/# Editores
+.vs/
+.vscode/
+.idea/
+# Dependências
+# Variáveis de ambiente (segredos)
+.env.*
+!.env.example
+# Configurações locais (pessoais, fora do Git)
+.claude/settings.local.json
+.impeccable/*.local.json
+# Saída do Playwright MCP (snapshots e logs)
+.playwright-mcp/
+# Sistema operacional
+# ai-design: linhas do template
+qualidade/relatorios/
+qualidade/exemplo/dist/
+# ai-design: só local (para versionar, apague este bloco)
+/.claude/
+/.mcp.json
+/CLAUDE.md
+/DESIGN.md
+/prompts/
+/qualidade/
+/skills-lock.json

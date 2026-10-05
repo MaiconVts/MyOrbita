@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect } from "react";
+﻿import { useState, useMemo } from "react";
 
 /**
  * Sentinelas de "valor ausente" usados pelo scraper quando não consegue extrair
@@ -68,20 +68,24 @@ const tituloMencionaAlgumNivel = (tituloNormalizado) => {
   );
 };
 
-export function useFiltrosVagas(vagasIniciais) {
+/**
+ * `inicial` permite abrir a lista já filtrada (ex.: filtros lidos da URL).
+ * Só vale na montagem; depois o estado é do hook.
+ */
+export function useFiltrosVagas(vagasIniciais, inicial = {}) {
   // --- Estados dos filtros ---
-  const [busca, setBusca] = useState("");
-  const [ordenacao, setOrdenacao] = useState("recente");
+  const [busca, setBusca] = useState(inicial.busca ?? "");
+  const [ordenacao, setOrdenacao] = useState(inicial.ordenacao ?? "recente");
 
   // Multi-select: cada array representa opções ativas. Array vazio = sem filtro.
-  const [filtrosModalidade, setFiltrosModalidade] = useState([]);
-  const [filtrosNivel, setFiltrosNivel] = useState([]);
-  const [filtrosEstado, setFiltrosEstado] = useState([]);
-  const [filtrosContrato, setFiltrosContrato] = useState([]);
-  const [filtrosOrigem, setFiltrosOrigem] = useState([]);
+  const [filtrosModalidade, setFiltrosModalidade] = useState(inicial.modalidade ?? []);
+  const [filtrosNivel, setFiltrosNivel] = useState(inicial.nivel ?? []);
+  const [filtrosEstado, setFiltrosEstado] = useState(inicial.estado ?? []);
+  const [filtrosContrato, setFiltrosContrato] = useState(inicial.contrato ?? []);
+  const [filtrosOrigem, setFiltrosOrigem] = useState(inicial.origem ?? []);
 
   // PCD continua toggle (boolean não tem caso ausente separável de false)
-  const [filtroPcd, setFiltroPcd] = useState(false);
+  const [filtroPcd, setFiltroPcd] = useState(inicial.pcd ?? false);
 
   const [paginaAtual, setPaginaAtual] = useState(1);
   const VAGAS_POR_PAGINA = 9;
@@ -222,9 +226,8 @@ export function useFiltrosVagas(vagasIniciais) {
   ]);
 
   // --- Reset de página ao alterar qualquer filtro ---
-  useEffect(() => {
-    setPaginaAtual(1);
-  }, [
+  // Ajuste durante o render (sem efeito): evita um render extra com a página antiga.
+  const assinaturaFiltros = JSON.stringify([
     busca,
     filtrosModalidade,
     ordenacao,
@@ -234,6 +237,11 @@ export function useFiltrosVagas(vagasIniciais) {
     filtroPcd,
     filtrosOrigem,
   ]);
+  const [filtrosDaPagina, setFiltrosDaPagina] = useState(assinaturaFiltros);
+  if (filtrosDaPagina !== assinaturaFiltros) {
+    setFiltrosDaPagina(assinaturaFiltros);
+    setPaginaAtual(1);
+  }
 
   // --- Paginação ---
   const totalPaginas = Math.max(

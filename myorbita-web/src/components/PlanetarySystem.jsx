@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useTransitionStore } from '../stores/transitionStore';
+import { useCeuStore } from '../stores/ceuStore';
 
 // ─── Layered canvas architecture ───────────────────────────────────────────
 // Layer 0 (static)  — nebulae, drawn once + on resize
@@ -330,10 +331,70 @@ export default function PlanetarySystem() {
       });
     };
 
+    // Cometas: um de cada vez, a cada 7 a 16 s, cruzando o céu na diagonal
+    // com cauda em degradê. Cor alterna entre as luzes da marca.
+    const CORES_COMETA = [[255,255,255],[79,195,247],[255,183,3]];
+    let cometa = null;
+    let proximoCometa = performance.now() + 4000;
+    const desenharCometa = (agora) => {
+      const w = window.innerWidth, h = window.innerHeight;
+      if (!cometa && agora >= proximoCometa) {
+        const daEsquerda = Math.random() < 0.5;
+        const ang = (daEsquerda ? 0.32 : Math.PI - 0.32) + (Math.random() - 0.5) * 0.3;
+        const vel = (w + h) / (1.6 + Math.random() * 1.2); // px por segundo
+        cometa = {
+          x: daEsquerda ? -60 : w + 60, y: Math.random() * h * 0.45,
+          vx: Math.cos(ang) * vel, vy: Math.sin(ang) * vel,
+          cauda: 140 + Math.random() * 160, cor: CORES_COMETA[Math.floor(Math.random() * 3)],
+          t: agora,
+        };
+      }
+      if (!cometa) return;
+      const dt = Math.min(0.05, (agora - cometa.t) / 1000);
+      cometa.t = agora;
+      cometa.x += cometa.vx * dt; cometa.y += cometa.vy * dt;
+      const norma = Math.hypot(cometa.vx, cometa.vy);
+      const tx = cometa.x - (cometa.vx / norma) * cometa.cauda;
+      const ty = cometa.y - (cometa.vy / norma) * cometa.cauda;
+      const [r, g, b] = cometa.cor;
+      const grad = warpCtx.createLinearGradient(cometa.x, cometa.y, tx, ty);
+      grad.addColorStop(0, `rgba(${r},${g},${b},0.9)`);
+      grad.addColorStop(0.25, `rgba(${r},${g},${b},0.35)`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      warpCtx.beginPath();
+      warpCtx.moveTo(cometa.x, cometa.y); warpCtx.lineTo(tx, ty);
+      warpCtx.strokeStyle = grad; warpCtx.lineWidth = 1.6; warpCtx.lineCap = 'round';
+      warpCtx.stroke();
+      warpCtx.beginPath();
+      warpCtx.arc(cometa.x, cometa.y, 1.8, 0, Math.PI * 2);
+      warpCtx.fillStyle = `rgba(255,255,255,0.95)`;
+      warpCtx.fill();
+      if (cometa.x < -400 || cometa.x > w + 400 || cometa.y > h + 400) {
+        cometa = null;
+        proximoCometa = agora + 7000 + Math.random() * 9000;
+      }
+    };
+
     // Lerp current speed toward target
     let currentSpeed = 0.0005;
 
+    // Para o céu quando a aba some, quando o visitante pausa ou quando o
+    // sistema pede menos movimento (nesse caso fica um quadro parado).
+    const reduzMovimento = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const parado = () =>
+      document.hidden || reduzMovimento.matches || useCeuStore.getState().pausado;
+
+    const desenharQuadro = () => {
+      const elapsed = (performance.now() - startTime) / 1000;
+      drawWarpLayer(currentSpeed);
+      drawSlowLayer(elapsed);
+    };
+
     const loop = () => {
+      if (parado()) {
+        animRef.current = null;
+        return;
+      }
       const elapsed = (performance.now() - startTime) / 1000;
       frameCount++;
 
@@ -343,6 +404,7 @@ export default function PlanetarySystem() {
 
       // Warp layer — every frame
       drawWarpLayer(currentSpeed);
+      desenharCometa(performance.now());
 
       // Slow layer — every 3 frames (~20fps) sufficient for stars+planets
       if (frameCount % 3 === 0) {
@@ -352,30 +414,43 @@ export default function PlanetarySystem() {
       animRef.current = requestAnimationFrame(loop);
     };
 
+    const retomar = () => {
+      if (!parado() && !animRef.current) {
+        animRef.current = requestAnimationFrame(loop);
+      }
+    };
+
+    const aoRedimensionar = () => {
+      resize();
+      if (parado()) desenharQuadro();
+    };
+
     resize();
-    window.addEventListener('resize', resize);
-    animRef.current = requestAnimationFrame(loop);
+    desenharQuadro();
+    window.addEventListener('resize', aoRedimensionar);
+    document.addEventListener('visibilitychange', retomar);
+    reduzMovimento.addEventListener('change', retomar);
+    const cancelarCeu = useCeuStore.subscribe(retomar);
+    retomar();
 
     return () => {
       cancelAnimationFrame(animRef.current);
-      window.removeEventListener('resize', resize);
+      animRef.current = null;
+      window.removeEventListener('resize', aoRedimensionar);
+      document.removeEventListener('visibilitychange', retomar);
+      reduzMovimento.removeEventListener('change', retomar);
+      cancelarCeu();
     };
   }, []);
 
-  const canvasStyle = {
-    position: 'fixed', top: 0, left: 0,
-    width: '100vw', height: '100vh',
-    pointerEvents: 'none',
-  };
-
   return (
-    <>
+    <div className="ceu" aria-hidden="true" data-efeito="particulas">
       {/* Static nebulae — bottom */}
-      <canvas ref={staticRef} style={{ ...canvasStyle, zIndex: 0 }} />
+      <canvas ref={staticRef} className="ceu__camada ceu__camada--nebulosa" />
       {/* Stars + planets — middle */}
-      <canvas ref={slowRef}   style={{ ...canvasStyle, zIndex: 1 }} />
+      <canvas ref={slowRef} className="ceu__camada ceu__camada--astros" />
       {/* Warp starfield — top */}
-      <canvas ref={warpRef}   style={{ ...canvasStyle, zIndex: 2 }} />
-    </>
+      <canvas ref={warpRef} className="ceu__camada ceu__camada--dobra" />
+    </div>
   );
 }

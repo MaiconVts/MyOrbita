@@ -1,11 +1,12 @@
-import { ref, get } from "firebase/database";
-import { database } from "./firebase";
+// O Firebase carrega sob demanda, fora do caminho do primeiro paint.
+const carregarFirebase = () => Promise.all([import("firebase/database"), import("./firebase")]);
 
 /**
  * Busca vagas de uma única rota do Firebase Realtime Database.
  * Retorna array vazio se a rota não existir ou estiver vazia.
  */
 const buscarRota = async (rota) => {
+    const [{ ref, get }, { database }] = await carregarFirebase();
     const referencia = ref(database, rota);
     const snapshot = await get(referencia);
     const dados = snapshot.val();

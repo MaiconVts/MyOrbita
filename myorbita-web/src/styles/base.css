@@ -1,0 +1,228 @@
+/* Base: documento, superfícies do navegador e utilitários de voz tipográfica */
+
+html {
+  background: var(--color-ceu);
+  color: var(--color-tinta);
+  color-scheme: dark;
+  scrollbar-color: color-mix(in oklch, var(--color-tech) 38%, var(--color-velino)) var(--color-ceu);
+  scrollbar-width: thin;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background: var(--color-ceu);
+  font-family: var(--font-corpo);
+  font-size: 1rem;
+  line-height: 1.6;
+  caret-color: var(--color-rota);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100dvh;
+}
+
+::selection {
+  background: var(--color-rota);
+  color: var(--color-tinta-escura);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-ceu);
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--color-tech) 30%, var(--color-velino));
+  border: 2px solid var(--color-ceu);
+  border-radius: var(--radius-pilula);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-rota);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 0.22em;
+  text-decoration-thickness: 1px;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+input::placeholder {
+  color: var(--color-tinta-fraca);
+  opacity: 1;
+}
+
+/* Vozes tipográficas da carta */
+.voz-gravada {
+  font-family: var(--font-gravada);
+  font-weight: 600;
+  letter-spacing: var(--tracking-gravada);
+  line-height: var(--leading-titulo);
+  text-wrap: balance;
+}
+
+.voz-margem {
+  font-family: var(--font-margem);
+  font-weight: 450;
+  font-size: var(--text-margem);
+  color: var(--color-tinta-suave);
+}
+
+.voz-coordenada {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: -0.01em;
+}
+
+.voz-rotulo {
+  font-family: var(--font-corpo);
+  font-size: var(--text-rotulo);
+  font-weight: 600;
+  letter-spacing: var(--tracking-rotulo);
+  text-transform: uppercase;
+}
+
+.so-leitor {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.pular-conteudo {
+  position: absolute;
+  left: var(--gutter);
+  top: 0.5rem;
+  z-index: 60;
+  padding: 0.5rem 1rem;
+  background: var(--color-rota);
+  color: var(--color-tinta-escura);
+  font-weight: 600;
+  border-radius: var(--radius-controle);
+  transform: translateY(-150%);
+  transition: transform var(--dur-rapida) var(--ease-saida);
+}
+.pular-conteudo:focus-visible {
+  transform: translateY(0);
+}
+
+/* Botões da carta */
+.botao {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  padding: 0 1.125rem;
+  border-radius: var(--radius-controle);
+  border: 1px solid var(--glass-borda);
+  background: transparent;
+  color: var(--color-tinta);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-rapida) var(--ease-saida),
+    border-color var(--dur-rapida) var(--ease-saida),
+    transform var(--dur-instante) var(--ease-saida);
+}
+.botao:active {
+  transform: scale(0.97);
+}
+.botao:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.botao--rota {
+  background: var(--color-rota);
+  border-color: var(--color-rota);
+  color: var(--color-tinta-escura);
+}
+.botao--tech {
+  background: var(--color-tech);
+  border-color: var(--color-tech);
+  color: var(--color-tinta-escura);
+}
+@media (hover: hover) and (pointer: fine) {
+  .botao:hover {
+    border-color: color-mix(in oklch, var(--color-tinta) 34%, transparent);
+    background: color-mix(in oklch, var(--color-tinta) 6%, transparent);
+  }
+  .botao--rota:hover {
+    background: color-mix(in oklch, var(--color-rota) 86%, var(--color-tinta));
+    border-color: transparent;
+  }
+  .botao--tech:hover {
+    background: color-mix(in oklch, var(--color-tech) 86%, var(--color-tinta));
+    border-color: transparent;
+  }
+}
+
+.botao-texto {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0;
+  background: none;
+  border: 0;
+  color: var(--color-tinta-suave);
+  font-size: 0.875rem;
+  text-decoration: underline;
+  text-decoration-color: var(--color-filete);
+  cursor: pointer;
+  transition: color var(--dur-rapida) var(--ease-saida);
+}
+@media (hover: hover) and (pointer: fine) {
+  .botao-texto:hover {
+    color: var(--color-tinta);
+    text-decoration-color: currentColor;
+  }
+}
+
+/* Placa de vidro: só sobre o céu vivo */
+.placa {
+  background: var(--glass-fundo);
+  border: 1px solid var(--glass-borda);
+  border-radius: var(--radius-placa);
+  box-shadow: var(--shadow-placa);
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  backdrop-filter: blur(var(--glass-blur));
+}
+
+.envelope {
+  width: 100%;
+  max-width: var(--largura-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+  box-sizing: border-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

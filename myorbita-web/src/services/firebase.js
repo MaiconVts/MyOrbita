@@ -15,4 +15,5 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const database = getDatabase(app);
-export const analytics = getAnalytics(app);
+// No pré-render (Node) não há window: o Analytics só sobe no navegador.
+export const analytics = typeof window !== "undefined" ? getAnalytics(app) : null;

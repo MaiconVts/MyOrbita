@@ -6,76 +6,54 @@ import { ChevronDown, Check } from "lucide-react";
  * Dropdown multi-select com checkboxes.
  *
  * Por que usa Portal?
- * O painel suspenso precisa ficar acima de TUDO no app (cards de vagas,
- * outros painéis, etc). Como o componente é renderizado dentro de um
- * container com `backdrop-filter: blur()`, esse container cria um
- * stacking context isolado — z-index alto não funciona pra escapar dele.
- * Solução: renderizar o painel via Portal direto no document.body, que
- * está fora de qualquer stacking context.
+ * O painel de filtros usa `backdrop-filter`, que cria um stacking context
+ * isolado: z-index alto não escapa dele. O painel suspenso é renderizado
+ * direto no document.body, fora de qualquer stacking context.
  *
- * Posição calculada via getBoundingClientRect() do botão-âncora.
- * Atualiza em scroll/resize para acompanhar o botão na tela.
+ * Posição calculada via getBoundingClientRect() do botão-âncora e
+ * atualizada em scroll/resize para acompanhar o botão na tela.
+ * Como o painel sai da árvore, a luz da área chega pela prop `luz`.
  */
-export default function FiltroMultiSelect({
-  icone,
-  placeholder,
-  opcoes,
-  selecionados,
-  onChange,
-  minWidth = "0",
-}) {
+export default function FiltroMultiSelect({ icone, placeholder, opcoes, selecionados, onChange, luz = "neutra" }) {
   const [aberto, setAberto] = useState(false);
   const [posicaoPainel, setPosicaoPainel] = useState({ top: 0, left: 0, width: 0 });
   const containerRef = useRef(null);
   const botaoRef = useRef(null);
   const painelRef = useRef(null);
 
-  // --- Calcula posição do painel baseado no botão âncora ---
-  // Necessário porque o painel está fora da árvore (Portal) e precisa saber
-  // onde renderizar. Recalcula em scroll/resize pra acompanhar.
   const atualizarPosicao = () => {
     if (!botaoRef.current) return;
     const rect = botaoRef.current.getBoundingClientRect();
-    setPosicaoPainel({
-      top: rect.bottom + 4, // 4px de gap abaixo do botão
-      left: rect.left,
-      width: rect.width,
-    });
+    setPosicaoPainel({ top: rect.bottom + 6, left: rect.left, width: rect.width });
   };
 
   useEffect(() => {
     if (!aberto) return;
-
     atualizarPosicao();
-
-    // Recalcula em scroll/resize porque o painel é position:fixed (Portal)
-    // e precisa acompanhar o botão se a página rolar.
     window.addEventListener("scroll", atualizarPosicao, true);
     window.addEventListener("resize", atualizarPosicao);
-
     return () => {
       window.removeEventListener("scroll", atualizarPosicao, true);
       window.removeEventListener("resize", atualizarPosicao);
     };
   }, [aberto]);
 
-  // --- Fecha ao clicar fora ---
-  // Considera tanto o container do botão quanto o painel (que está em outro
-  // lugar da árvore por causa do Portal). Se clicou em qualquer um deles, mantém aberto.
+  // Fecha ao clicar fora (botão e painel contam como "dentro") e no Esc,
+  // devolvendo o foco ao botão.
   useEffect(() => {
     if (!aberto) return;
 
     const handleClickFora = (e) => {
-      const target = e.target;
-      const dentroBotao = containerRef.current?.contains(target);
-      const dentroPainel = painelRef.current?.contains(target);
-      if (!dentroBotao && !dentroPainel) {
-        setAberto(false);
-      }
+      const dentroBotao = containerRef.current?.contains(e.target);
+      const dentroPainel = painelRef.current?.contains(e.target);
+      if (!dentroBotao && !dentroPainel) setAberto(false);
     };
 
     const handleEsc = (e) => {
-      if (e.key === "Escape") setAberto(false);
+      if (e.key === "Escape") {
+        setAberto(false);
+        botaoRef.current?.focus();
+      }
     };
 
     document.addEventListener("mousedown", handleClickFora);
@@ -86,12 +64,19 @@ export default function FiltroMultiSelect({
     };
   }, [aberto]);
 
+  // Setas movem o foco entre as opções do painel aberto.
+  const aoTeclarPainel = (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const itens = [...(painelRef.current?.querySelectorAll('[role="option"]') ?? [])];
+    const atual = itens.indexOf(document.activeElement);
+    const proximo = e.key === "ArrowDown" ? Math.min(itens.length - 1, atual + 1) : Math.max(0, atual - 1);
+    itens[proximo]?.focus();
+  };
+
   const toggleOpcao = (value) => {
-    if (selecionados.includes(value)) {
-      onChange(selecionados.filter((v) => v !== value));
-    } else {
-      onChange([...selecionados, value]);
-    }
+    if (selecionados.includes(value)) onChange(selecionados.filter((v) => v !== value));
+    else onChange([...selecionados, value]);
   };
 
   const textoBotao = (() => {
@@ -105,162 +90,67 @@ export default function FiltroMultiSelect({
 
   const temSelecao = selecionados.length > 0;
 
-  // --- Painel renderizado via Portal ---
-  // typeof document !== "undefined" garante SSR-safety se um dia for usado
-  // em ambiente sem document (Next.js, etc). Em Vite/CRA puro sempre passa.
-  const painel = aberto && typeof document !== "undefined"
-    ? createPortal(
-        <div
-          ref={painelRef}
-          style={{
-            position: "fixed",
-            top: posicaoPainel.top,
-            left: posicaoPainel.left,
-            width: posicaoPainel.width,
-            background: "rgba(15, 15, 35, 0.98)",
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: "10px",
-            backdropFilter: "blur(16px)",
-            boxShadow: "0 10px 30px -5px rgba(0,0,0,0.5)",
-            maxHeight: "280px",
-            overflowY: "auto",
-            padding: "4px",
-            // z-index alto E fora do stacking context dos filtros (Portal escapa).
-            // 9999 é folgado pra ficar acima de modal, header sticky, etc.
-            zIndex: 9999,
-          }}
-          role="listbox"
-        >
-          {opcoes.length === 0 ? (
-            <div className="px-3 py-2 text-[12px] text-[#6b7280]">
-              Nenhuma opção disponível
-            </div>
-          ) : (
-            opcoes.map((opcao) => {
-              const marcado = selecionados.includes(opcao.value);
-              return (
-                <button
-                  key={opcao.value}
-                  type="button"
-                  onClick={() => toggleOpcao(opcao.value)}
-                  role="option"
-                  aria-selected={marcado}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-[13px] rounded-md transition-all text-left"
-                  style={{
-                    background: marcado
-                      ? "rgba(79,195,247,0.12)"
-                      : "transparent",
-                    color: marcado ? "#FFFFFF" : "#A0AEC0",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!marcado) {
-                      e.currentTarget.style.background = "rgba(255,255,255,0.04)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!marcado) {
-                      e.currentTarget.style.background = "transparent";
-                    }
-                  }}
-                >
-                  <span
-                    className="flex items-center justify-center shrink-0"
-                    style={{
-                      width: "16px",
-                      height: "16px",
-                      borderRadius: "4px",
-                      border: marcado
-                        ? "1px solid #4FC3F7"
-                        : "1px solid rgba(255,255,255,0.2)",
-                      background: marcado ? "#4FC3F7" : "transparent",
-                      transition: "all 0.15s ease",
-                    }}
+  const painel =
+    aberto && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            ref={painelRef}
+            className={`multi-painel luz-${luz}`}
+            style={{
+              top: posicaoPainel.top,
+              left: posicaoPainel.left,
+              minWidth: Math.max(posicaoPainel.width, 200),
+            }}
+            role="listbox"
+            aria-multiselectable="true"
+            aria-label={placeholder}
+            onKeyDown={aoTeclarPainel}
+          >
+            {opcoes.length === 0 ? (
+              <div className="multi-painel__vazio">Nenhuma opção disponível</div>
+            ) : (
+              opcoes.map((opcao) => {
+                const marcado = selecionados.includes(opcao.value);
+                return (
+                  <button
+                    key={opcao.value}
+                    type="button"
+                    onClick={() => toggleOpcao(opcao.value)}
+                    role="option"
+                    aria-selected={marcado}
+                    className={`multi-opcao ${opcao.luz ? `luz-${opcao.luz}` : ""}`}
                   >
-                    {marcado && <Check size={11} color="#050015" strokeWidth={3} />}
-                  </span>
-
-                  {opcao.cor && (
-                    <span
-                      className="shrink-0"
-                      style={{
-                        width: "8px",
-                        height: "8px",
-                        borderRadius: "50%",
-                        background: opcao.cor,
-                      }}
-                    />
-                  )}
-
-                  <span
-                    style={{
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                      fontWeight: marcado ? 500 : 400,
-                    }}
-                  >
-                    {opcao.label}
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>,
-        document.body
-      )
-    : null;
+                    <span className="multi-opcao__caixa" aria-hidden="true">
+                      {marcado && <Check size={11} strokeWidth={3} />}
+                    </span>
+                    {opcao.luz && <span className="alternador__ponto" aria-hidden="true" />}
+                    <span>{opcao.label}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
-    <div ref={containerRef} className="relative" style={{ minWidth }}>
+    <div ref={containerRef} className="relative min-w-0">
       <button
         ref={botaoRef}
         type="button"
         onClick={() => setAberto((v) => !v)}
         aria-haspopup="listbox"
         aria-expanded={aberto}
-        className="w-full min-w-0 h-[44px] flex items-center text-[13px] outline-none cursor-pointer transition-all"
-        style={{
-          background: "rgba(255,255,255,0.05)",
-          border: temSelecao
-            ? "1px solid rgba(79,195,247,0.4)"
-            : "1px solid rgba(255,255,255,0.09)",
-          borderRadius: "10px",
-          paddingLeft: icone ? "36px" : "16px",
-          paddingRight: "32px",
-          color: temSelecao ? "#FFFFFF" : "#A0AEC0",
-          fontWeight: temSelecao ? 500 : 400,
-          position: "relative",
-          textAlign: "left",
-        }}
+        aria-pressed={temSelecao}
+        className="alternador multi"
       >
-        {icone && (
-          <span
-            className="absolute left-3 pointer-events-none flex items-center"
-            style={{ color: "#A0AEC0" }}
-          >
-            {icone}
-          </span>
-        )}
-        <span
-          style={{
-            overflow: "hidden",
-            textOverflow: "ellipsis",
-            whiteSpace: "nowrap",
-            flex: 1,
-          }}
-        >
-          {textoBotao}
+        <span className="multi__rotulo">
+          {icone && <span className="multi__icone" aria-hidden="true">{icone}</span>}
+          <span className="multi__texto">{textoBotao}</span>
         </span>
-        <ChevronDown
-          size={14}
-          className="absolute right-3 transition-transform"
-          style={{
-            color: "#A0AEC0",
-            transform: aberto ? "rotate(180deg)" : "rotate(0deg)",
-          }}
-        />
+        <ChevronDown size={14} className="multi__seta" aria-hidden="true" />
       </button>
-
       {painel}
     </div>
   );

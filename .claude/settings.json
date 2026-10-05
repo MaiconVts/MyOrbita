@@ -8,6 +8,73 @@
       "Bash(python -m py_compile scrapers/linkedin_scraper.py)",
       "Bash(git commit *)",
       "Bash(python -m py_compile scrapers/base_scraper.py)"
+    ],
+    "deny": [
+      "mcp__figma__generate_figma_design",
+      "mcp__figma__generate_diagram",
+      "mcp__figma__use_figma",
+      "mcp__figma__create_new_file",
+      "mcp__figma__upload_assets",
+      "mcp__figma__add_code_connect_map",
+      "mcp__figma__send_code_connect_mappings",
+      "mcp__figma__export_video",
+      "mcp__figma__weave_run_tool",
+      "mcp__figma__weave_upload_asset",
+      "mcp__figma__weave_cancel_tool_run",
+      "mcp__figma__weave_run_model",
+      "mcp__figma__create_generative_plugin",
+      "mcp__figma__update_generative_plugin",
+      "mcp__figma__create_shader",
+      "mcp__figma__update_shader",
+      "mcp__playwright__browser_run_code",
+      "mcp__playwright__browser_run_code_unsafe",
+      "mcp__playwright__browser_evaluate",
+      "mcp__chrome-devtools__evaluate_script",
+      "mcp__chrome-devtools__execute_3p_developer_tool",
+      "mcp__chrome-devtools__execute_webmcp_tool",
+      "mcp__chrome-devtools__install_extension",
+      "mcp__chrome-devtools__reload_extension",
+      "mcp__chrome-devtools__trigger_extension_action",
+      "mcp__chrome-devtools__uninstall_extension",
+      "mcp__chrome-devtools__install_pwa",
+      "mcp__chrome-devtools__uninstall_pwa",
+      "mcp__chrome-devtools__take_heapsnapshot"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "figma",
+    "playwright",
+    "context7",
+    "chrome-devtools"
+  ],
+  "skillOverrides": {
+    "high-end-visual-design": "user-invocable-only"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" ] || \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook",
+            "timeout": 5,
+            "statusMessage": "Checking UI changes"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" ] || \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook",
+            "timeout": 30,
+            "statusMessage": "Design deep pass"
+          }
+        ]
+      }
     ]
   }
 }

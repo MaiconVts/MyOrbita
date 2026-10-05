@@ -1,21 +1,4 @@
 @import "tailwindcss";
-
-/* * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  essa linha estava zerando o padding e margin de todos os elementos, o que causava problemas de layout, especialmente em elementos como o body e o root. Remover essa regra permite que os estilos padrão sejam aplicados corretamente, evitando que o conteúdo seja cortado ou que haja espaços indesejados.
-} */ 
-
-html, body, #root {
-  width: 100%;
-  min-height: 100vh;
-  background-color: #050015;
-  color: #ffffff;
-  overflow-x: hidden; /* Trava crítica para impedir que o conteúdo deslize para fora da tela */
-}
-
-#root {
-  position: relative;
-  display: block; 
-}
+@import "./styles/tokens.css";
+@import "./styles/base.css";
+@import "./styles/carta.css";

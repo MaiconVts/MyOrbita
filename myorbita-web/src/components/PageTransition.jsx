@@ -1,26 +1,30 @@
 import { useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useTransitionStore } from '../stores/transitionStore';
+import { useReduzMovimento } from '../hooks/useReduzMovimento';
+import { DUR, EASE_SAIDA } from '../constants/motion';
 
 export default function PageTransition({ children }) {
   const { startTransition, completeTransition } = useTransitionStore();
+  const reduz = useReduzMovimento();
 
   // Dispara warp na entrada de cada página
   useEffect(() => {
     startTransition();
     const timer = setTimeout(completeTransition, 600);
     return () => clearTimeout(timer);
-  }, []);
+  }, [startTransition, completeTransition]);
 
+  // Conteúdo visível já no primeiro frame (pré-render): só a saída esmaece.
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
+    <m.div
+      className="transicao-pagina"
+      initial={false}
       animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      style={{ width: '100%', minHeight: '100vh' }}
+      exit={reduz ? { opacity: 1 } : { opacity: 0 }}
+      transition={{ duration: DUR.media, ease: EASE_SAIDA }}
     >
       {children}
-    </motion.div>
+    </m.div>
   );
 }

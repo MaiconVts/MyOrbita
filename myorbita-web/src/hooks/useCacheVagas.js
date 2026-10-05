@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { getVagas } from "../services/api";
 
 /**
@@ -99,11 +99,7 @@ export function useCacheVagas(rotas) {
   // Estabiliza a referência de `rotas` pelo conteúdo, não pela identidade do array.
   // Evita que o consumidor passando `[ROUTE_A, ROUTE_B]` inline a cada render
   // invalide useCallback/useEffect desnecessariamente.
-  const rotasRef = useRef(rotas);
   const rotasAssinatura = rotas.join("|");
-  if (rotasRef.current.join("|") !== rotasAssinatura) {
-    rotasRef.current = rotas;
-  }
 
   /**
    * Busca as vagas de cada rota, priorizando cache local.
@@ -117,7 +113,7 @@ export function useCacheVagas(rotas) {
    */
   const buscarTodas = useCallback(
     async (forcar = false) => {
-      const rotasAtuais = rotasRef.current;
+      const rotasAtuais = rotasAssinatura.split("|");
 
       // null = nenhum cache hit ainda; vamos preencher conforme lemos cache.
       let timestampMaisAntigo = null;
@@ -177,7 +173,6 @@ export function useCacheVagas(rotas) {
     },
     // rotasAssinatura muda quando o CONTEÚDO do array muda.
     // Não depende da identidade do array passado pelo consumidor.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [rotasAssinatura]
   );
 
