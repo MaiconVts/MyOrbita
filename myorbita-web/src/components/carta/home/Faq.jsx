@@ -15,7 +15,7 @@ export default function Faq() {
   return (
     <section className="secao" ref={ref} aria-labelledby="faq-titulo">
       <div className="envelope faq">
-        <CabecaSecao marcador="04 · Perguntas" id="faq-titulo" titulo="Antes de decolar." />
+        <CabecaSecao id="faq-titulo" titulo="Antes de decolar." />
         <div className="faq__lista">
           {PERGUNTAS.map(({ pergunta, resposta }) => (
             <details key={pergunta} name="faq">

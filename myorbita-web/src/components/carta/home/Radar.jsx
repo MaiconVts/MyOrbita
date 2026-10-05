@@ -49,7 +49,6 @@ export default function Radar({ resumo, onAbrir }) {
     <section className="secao" ref={ref} aria-labelledby="radar-titulo">
       <div className="envelope">
         <CabecaSecao
-          marcador="02 · No radar agora"
           id="radar-titulo"
           titulo="As últimas vagas que entraram na carta."
           texto="As publicações mais recentes das duas áreas, em ordem de chegada. Abra uma para ver os detalhes e seguir para a candidatura na página original."

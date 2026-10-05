@@ -221,6 +221,12 @@ export default function ListaVagas({ area }) {
     filtrosAtivos, totalFiltrosAtivos, limparFiltros,
   } = useFiltrosVagas(vagasRaw, inicial);
 
+  // No celular, plataforma, nível, estado, contrato e PCD ficam recolhidos para a lista aparecer antes.
+  const [maisFiltros, setMaisFiltros] = useState(false);
+  const extrasAtivos =
+    [filtrosOrigem, filtrosNivel, filtrosEstado, filtrosContrato].filter((l) => l.length > 0).length +
+    (filtroPcd ? 1 : 0);
+
   // Estado dos filtros → URL, sem empilhar histórico a cada tecla.
   useEffect(() => {
     const params = new URLSearchParams();
@@ -274,12 +280,12 @@ export default function ListaVagas({ area }) {
         <header className="lista__cabeca">
           <span className="lista__luz" aria-hidden="true" data-efeito="glow" />
           <div>
-            <p className="lista__sub voz-coordenada subir" style={{ "--ordem": 0 }}>
-              {area.subtitulo}
-            </p>
-            <h1 className="lista__titulo subir" style={{ "--ordem": 1 }}>
+            <h1 className="lista__titulo subir" style={{ "--ordem": 0 }}>
               {area.titulo}
             </h1>
+            <p className="lista__sub voz-coordenada subir" style={{ "--ordem": 1 }}>
+              {area.subtitulo}
+            </p>
             <p className="lista__contador subir" style={{ "--ordem": 2 }}>
               {carregando ? (
                 "Carregando vagas..."
@@ -365,69 +371,83 @@ export default function ListaVagas({ area }) {
             </label>
           </div>
 
-          {origensDisponiveis.length > 0 && (
-            <div className="filtros__origens" role="group" aria-labelledby="filtro-plataforma">
-              <span className="voz-rotulo" id="filtro-plataforma">
-                Plataforma
-              </span>
-              {origensDisponiveis.map((origem) => {
-                const ativo = filtrosOrigem.includes(origem);
-                return (
-                  <button
-                    key={origem}
-                    type="button"
-                    className={`alternador luz-${LUZ_ORIGEM[origem] ?? "neutra"}`}
-                    aria-pressed={ativo}
-                    onClick={() => toggleOrigem(origem)}
-                    title={ativo ? `Remover filtro do ${origem}` : `Adicionar vagas do ${origem}`}
-                  >
-                    <span className="alternador__ponto" aria-hidden="true" />
-                    {origem}
-                  </button>
-                );
-              })}
-              <span className="filtros__dica">
-                {filtrosOrigem.length > 0
-                  ? `${filtrosOrigem.length} ${filtrosOrigem.length === 1 ? "selecionada" : "selecionadas"}`
-                  : "Nenhum filtro = todas as plataformas"}
-              </span>
-            </div>
-          )}
+          <button
+            type="button"
+            className="botao-texto filtros__mais"
+            aria-expanded={maisFiltros}
+            aria-controls="filtros-extra"
+            onClick={() => setMaisFiltros(!maisFiltros)}
+          >
+            <ChevronDown size={14} className="filtros__mais-seta" aria-hidden="true" />
+            {maisFiltros ? "Menos filtros" : "Mais filtros"}
+            {extrasAtivos > 0 && <span className="filtros__ativos">{extrasAtivos}</span>}
+          </button>
 
-          <div className="filtros__grade">
-            <FiltroMultiSelect
-              icone={<GraduationCap size={15} />}
-              placeholder="Qualquer Nível"
-              opcoes={OPCOES_NIVEL}
-              selecionados={filtrosNivel}
-              onChange={setFiltrosNivel}
-              luz={area.luz}
-            />
-            <FiltroMultiSelect
-              icone={<MapPin size={14} />}
-              placeholder="Qualquer Estado"
-              opcoes={opcoesEstado}
-              selecionados={filtrosEstado}
-              onChange={setFiltrosEstado}
-              luz={area.luz}
-            />
-            <FiltroMultiSelect
-              icone={<Briefcase size={14} />}
-              placeholder="Qualquer Contrato"
-              opcoes={opcoesContrato}
-              selecionados={filtrosContrato}
-              onChange={setFiltrosContrato}
-              luz={area.luz}
-            />
-            <button
-              type="button"
-              className={`alternador luz-${area.luz}`}
-              aria-pressed={filtroPcd}
-              onClick={() => setFiltroPcd(!filtroPcd)}
-            >
-              <Accessibility size={14} aria-hidden="true" />
-              PCD
-            </button>
+          <div className="filtros__extra" id="filtros-extra" data-aberto={maisFiltros || undefined}>
+            {origensDisponiveis.length > 0 && (
+              <div className="filtros__origens" role="group" aria-labelledby="filtro-plataforma">
+                <span className="voz-rotulo" id="filtro-plataforma">
+                  Plataforma
+                </span>
+                {origensDisponiveis.map((origem) => {
+                  const ativo = filtrosOrigem.includes(origem);
+                  return (
+                    <button
+                      key={origem}
+                      type="button"
+                      className={`alternador luz-${LUZ_ORIGEM[origem] ?? "neutra"}`}
+                      aria-pressed={ativo}
+                      onClick={() => toggleOrigem(origem)}
+                      title={ativo ? `Remover filtro do ${origem}` : `Adicionar vagas do ${origem}`}
+                    >
+                      <span className="alternador__ponto" aria-hidden="true" />
+                      {origem}
+                    </button>
+                  );
+                })}
+                <span className="filtros__dica">
+                  {filtrosOrigem.length > 0
+                    ? `${filtrosOrigem.length} ${filtrosOrigem.length === 1 ? "selecionada" : "selecionadas"}`
+                    : "Nenhum filtro = todas as plataformas"}
+                </span>
+              </div>
+            )}
+
+            <div className="filtros__grade">
+              <FiltroMultiSelect
+                icone={<GraduationCap size={15} />}
+                placeholder="Qualquer Nível"
+                opcoes={OPCOES_NIVEL}
+                selecionados={filtrosNivel}
+                onChange={setFiltrosNivel}
+                luz={area.luz}
+              />
+              <FiltroMultiSelect
+                icone={<MapPin size={14} />}
+                placeholder="Qualquer Estado"
+                opcoes={opcoesEstado}
+                selecionados={filtrosEstado}
+                onChange={setFiltrosEstado}
+                luz={area.luz}
+              />
+              <FiltroMultiSelect
+                icone={<Briefcase size={14} />}
+                placeholder="Qualquer Contrato"
+                opcoes={opcoesContrato}
+                selecionados={filtrosContrato}
+                onChange={setFiltrosContrato}
+                luz={area.luz}
+              />
+              <button
+                type="button"
+                className={`alternador luz-${area.luz}`}
+                aria-pressed={filtroPcd}
+                onClick={() => setFiltroPcd(!filtroPcd)}
+              >
+                <Accessibility size={14} aria-hidden="true" />
+                PCD
+              </button>
+            </div>
           </div>
 
           {totalFiltrosAtivos > 0 && (

@@ -571,24 +571,11 @@
   gap: --spacing(6) --spacing(12);
   margin-bottom: --spacing(12);
 }
-.secao__marcador {
-  display: flex;
-  align-items: center;
-  gap: --spacing(3);
-  margin-bottom: --spacing(4);
-  color: var(--color-tinta-fraca);
-  font-size: var(--text-sm);
-}
-.secao__marcador::after {
-  content: "";
-  width: --spacing(12);
-  height: 1px;
-  background: var(--color-linha);
-}
 .secao__titulo {
   margin: 0;
   font-size: var(--text-titulo-secao);
   max-width: 18ch;
+  text-wrap: balance;
 }
 .secao__texto {
   margin: 0;
@@ -1242,7 +1229,7 @@ a.rota:focus-visible { outline: 2px solid var(--luz); outline-offset: 3px; }
   pointer-events: none;
 }
 .lista__sub {
-  margin: 0 0 --spacing(3);
+  margin: --spacing(3) 0 0;
   color: var(--luz);
 }
 .lista__titulo {
@@ -1342,6 +1329,17 @@ a.rota:focus-visible { outline: 2px solid var(--luz); outline-offset: 3px; }
   flex-wrap: wrap;
   align-items: center;
   gap: --spacing(2) --spacing(3);
+}
+/* "Mais filtros": só no celular; no desktop o bloco extra se dissolve na grade do painel. */
+.filtros__mais { display: none; }
+.filtros__extra { display: contents; }
+.filtros__mais-seta {
+  transition: transform var(--dur-media) var(--ease-saida);
+}
+.filtros__mais[aria-expanded="true"] .filtros__mais-seta { transform: rotate(180deg); }
+@media (max-width: 48em) {
+  .filtros__mais { display: inline-flex; justify-self: start; }
+  .filtros__extra:not([data-aberto]) { display: none; }
 }
 .filtros__dica {
   font-size: var(--text-xs);

@@ -29,6 +29,10 @@
 - `@rive-app/react-canvas` removido, junto com dois arquivos mortos: `constants/colors.js` e `CreditoDesenvolvedor/index.jsx`.
 - `.vazio__giro` agora usa o token `--dur-giro-vazio`.
 
+## Concluído (05/10/2026): polish
+- Removidos os marcadores-sobrancelha das seções da Home ("01 · Rotas" a "04 · Perguntas" e "Próxima parada"). Os títulos das seções agora usam `text-wrap: balance`.
+- ListaVagas: o subtítulo da área desceu para baixo do H1. No celular, plataforma, nível, estado, contrato e PCD ficam atrás do botão "Mais filtros", que mostra quantos estão ativos, e a primeira vaga aparece já na primeira tela.
+
 ## Em aberto: só backend e segurança
 - **Ko-fi:** preencher `SITE.apoio` em `myorbita-web/src/config/site.js` com a URL da página (é a única ação do dono no front).
 - **Backend Gupy:** descobrir o endpoint novo e não gravar `ref.set({})` com lista vazia (ver `STATUS.md`, itens 1 a 3).

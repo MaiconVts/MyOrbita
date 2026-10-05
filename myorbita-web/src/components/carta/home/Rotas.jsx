@@ -143,7 +143,6 @@ export default function Rotas({ resumo }) {
     <section className="secao" id="rotas" ref={ref} aria-labelledby="rotas-titulo">
       <div className="envelope">
         <CabecaSecao
-          marcador="01 · Rotas"
           id="rotas-titulo"
           titulo="Duas áreas, um mapa só."
           texto="Tecnologia e direito, cada uma com a sua luz. Os números abaixo vêm da coleta de hoje e mostram quantas vagas estão no ar e como se dividem entre remoto, híbrido e presencial."

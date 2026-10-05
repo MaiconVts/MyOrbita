@@ -27,7 +27,6 @@ export default function Trajeto() {
     <section className="secao" ref={ref} aria-labelledby="trajeto-titulo">
       <div className="envelope">
         <CabecaSecao
-          marcador="03 · Como funciona"
           id="trajeto-titulo"
           titulo="Da coleta diária até a sua tela."
           texto="Quatro estações, todo dia. Robôs coletam as vagas nas fontes, removem repetições, guardam tudo organizado e entregam aqui com filtros que rodam no seu navegador."

@@ -22,7 +22,6 @@ export default function Chamada({ total, carregando }) {
       <div className="envelope">
         <div className="placa chamada" data-efeito="vidro">
           <span className="chamada__luz" aria-hidden="true" data-efeito="glow" />
-          <p className="voz-coordenada secao__marcador">Próxima parada</p>
           <h2 className="chamada__titulo" id="chamada-titulo">
             {carregando || !total
               ? "Escolha a sua rota e comece a buscar."
