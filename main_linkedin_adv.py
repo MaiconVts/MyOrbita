@@ -9,10 +9,9 @@ A orquestração propriamente dita vive em scraper_runner.py
 (DRY — mesmo código compartilhado com main_gupy.py e main_linkedin_dev.py).
 
 Por que split DEV/ADV?
-O hard limit de 6h do GitHub Actions não comporta DEV + ADV no mesmo job
-(DEV sozinho já ocupa ~2h40min com anti-detecção ativa). Separar em dois
-workflows com crons distintos garante que ADV sempre executa, além de
-isolar falhas (se DEV quebrar, ADV roda independente).
+Separar em dois workflows com crons distintos isola falhas: se DEV quebrar,
+ADV roda independente. (Antes de 05/10/2026 a busca fazia uma requisição
+por modalidade e página, e DEV + ADV não cabiam nas 6h do GitHub Actions.)
 """
 from scrapers.linkedin_scraper import LinkedinScraper
 from scraper_runner import executar

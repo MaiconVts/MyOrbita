@@ -2,7 +2,7 @@
   "configuracoes_gerais": {
     "limite_vagas_por_pesquisa": 120,
     "plataformas_alvo": [
-      "gupy"
+      "linkedin"
     ]
   },
   "filtros_de_busca": {
@@ -162,9 +162,7 @@
       "Legal"
     ],
     "modalidades": [
-      "Remoto",
-      "Híbrido",
-      "Presencial"
+      "Todas"
     ]
   }
 }

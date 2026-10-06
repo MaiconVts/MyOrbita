@@ -34,7 +34,10 @@ Camadas de proteção (da mais fundamental à mais avançada):
 
 Filtros validados empiricamente:
     - geoId=106057199 — força vagas brasileiras apenas
-    - f_WT=1/2/3      — Presencial/Remoto/Híbrido (conjuntos disjuntos, 100% eficaz)
+    - f_WT e start NÃO funcionam para visitante: o LinkedIn ignora os dois e
+      devolve sempre as mesmas ~60 vagas (conferido em 05/10/2026). Por isso
+      a busca faz uma requisição por keyword, sem filtro de modalidade, e a
+      modalidade de cada vaga é inferida da localização do card.
 
 Seletores CSS confirmados (Abril/2026):
     Card container:  div.base-card.job-search-card
@@ -291,14 +294,6 @@ TIPO_CONTRATO_MAP = {
     'voluntário': 'Voluntário',
 }
 
-# f_WT=1 (presencial) | f_WT=2 (remoto) | f_WT=3 (híbrido)
-F_WT_MAP = {
-    'remoto': ('2', 'Remoto'),
-    'presencial': ('1', 'Presencial'),
-    'hibrido': ('3', 'Híbrido'),
-    'híbrido': ('3', 'Híbrido'),
-}
-
 # Termos que indicam "país" e não "estado" — usados para detectar quando o
 # LinkedIn retorna localização degradada (só "Brasil" sem cidade/UF).
 # Quando aparece um desses no campo onde esperaríamos UF, jogamos pra country.
@@ -334,10 +329,6 @@ class LinkedinScraper(BaseScraper):
     com impersonate="chrome".
     """
 
-    # --- Limites de paginação ---
-    _VAGAS_POR_PAGINA = 60
-    _MAX_PAGINAS = 4
-
     # --- Limites globais de segurança ---
     _MAX_REQUESTS_POR_EXECUCAO = 10000
     _MAX_ERROS_CONSECUTIVOS = 5
@@ -348,11 +339,6 @@ class LinkedinScraper(BaseScraper):
     _DELAY_ENTRE_REQUESTS_DESVIO = 1.5
     _DELAY_ENTRE_KEYWORDS_MEDIA = 8.0
     _DELAY_ENTRE_KEYWORDS_DESVIO = 2.0
-
-    _PAUSA_INTERMEDIARIA_MEDIA = 25.0
-    _PAUSA_INTERMEDIARIA_DESVIO = 2.5
-    _PAUSA_INTERMEDIARIA_MIN = 20.0
-    _PAUSA_INTERMEDIARIA_MAX = 30.0
 
     _PAUSA_RECUPERACAO = 120.0
 
@@ -449,18 +435,6 @@ class LinkedinScraper(BaseScraper):
         delay = random.gauss(media, desvio)
         delay = max(1.5, min(delay, media * 3))
         time.sleep(delay)
-
-    def _delay_gaussiano_clampado(
-            self,
-            media: float,
-            desvio: float,
-            minimo: float,
-            maximo: float) -> float:
-        """Variante com clamp customizado [min, max]. Retorna delay aplicado."""
-        delay = random.gauss(media, desvio)
-        delay = max(minimo, min(delay, maximo))
-        time.sleep(delay)
-        return delay
 
     # ==================================================================
     # CAMADA 4 — Detecção de Bloqueio
@@ -670,12 +644,18 @@ class LinkedinScraper(BaseScraper):
 
         return 'Não informado'
 
-    def _extrair_contrato_pagina_interna(self, link: str) -> str:
+    def _extrair_contrato_pagina_interna(self, link: str) -> str | None:
+        """
+        Contrato lido da página interna da vaga.
+
+        Devolve None quando a página não carregou (falha de rede ou bloqueio)
+        e 'Não informado' quando carregou mas não declara o contrato.
+        """
         self._delay_gaussiano(3.0, 0.8)
 
         response = self._fazer_request(link, pagina_interna=True)
         if not response:
-            return 'Não informado'
+            return None
 
         html_string = self._decodificar_html_utf8(response.content)
 
@@ -751,13 +731,9 @@ class LinkedinScraper(BaseScraper):
     # CAMADA 8 — Request com Todas as Proteções
     # ==================================================================
 
-    def _montar_url(
-            self,
-            palavra_chave: str,
-            offset: int = 0,
-            f_wt: str | None = None) -> str:
+    def _montar_url(self, palavra_chave: str) -> str:
         """
-        Monta URL de busca do LinkedIn.
+        Monta URL de busca do LinkedIn (sem f_WT nem start: o LinkedIn ignora os dois).
 
         ⚠️ quote_plus garante UTF-8 correto na URL: keywords como "C# .NET"
         viram "C%23+.NET" (não corrompe acentos em queries em português).
@@ -768,10 +744,7 @@ class LinkedinScraper(BaseScraper):
             f"?keywords={keyword_encoded}"
             f"&location=Brasil"
             f"&geoId={self._GEO_ID_BRASIL}"
-            f"&start={offset}"
         )
-        if f_wt:
-            url += f"&f_WT={f_wt}"
         return url
 
     def _fazer_request(self, url: str, pagina_interna: bool = False):
@@ -836,11 +809,14 @@ class LinkedinScraper(BaseScraper):
         """
         Implementação obrigatória do método de busca.
 
-        Fluxo de pausas:
-        - Entre requests da mesma keyword: delay curto (~6s gaussiano)
-        - Entre páginas da mesma keyword: pausa intermediária [20-30s]
-          (só se houver próxima página — nunca após a última)
-        - Entre keywords diferentes: cooldown (~8s)
+        Faz uma única requisição por keyword. `modalidade` é aceito pelo
+        contrato do BaseScraper, mas não filtra nada: o LinkedIn ignora f_WT
+        e start para visitante, então filtrar ou paginar só repetia as mesmas
+        vagas com o rótulo de modalidade errado. A modalidade de cada vaga vem
+        da localização do card. `limite` corta a lista devolvida.
+
+        Pausas: delay curto antes do request (~6s gaussiano) e cooldown entre
+        keywords (~8s).
         """
         if self._limite_global_atingido():
             return []
@@ -850,62 +826,16 @@ class LinkedinScraper(BaseScraper):
         self._aquecer_session()
         self._verificar_taxa_erro()
 
-        modalidade_normalizada = modalidade.lower().strip() if modalidade else ''
-        f_wt_code, modalidade_rotulo = F_WT_MAP.get(
-            modalidade_normalizada, (None, None))
+        response = self._fazer_request(self._montar_url(palavra_chave))
 
-        todas_vagas = []
-
-        max_paginas = min(
-            (limite + self._VAGAS_POR_PAGINA - 1) // self._VAGAS_POR_PAGINA,
-            self._MAX_PAGINAS
-        )
-
-        for pagina in range(max_paginas):
-            offset = pagina * 25
-            url = self._montar_url(palavra_chave, offset, f_wt=f_wt_code)
-
-            response = self._fazer_request(url)
-
-            if not response:
-                logger.warning(
-                    f"[LINKEDIN] Paginação interrompida na página {pagina + 1}"
-                )
-                break
-
-            vagas_pagina = self._extrair_vagas_da_pagina(
-                response.content, modalidade_rotulo)
-
-            if not vagas_pagina:
-                logger.info(
-                    f"[LINKEDIN] Página {pagina + 1} vazia — fim dos resultados"
-                )
-                break
-
-            todas_vagas.extend(vagas_pagina)
-
+        if not response:
+            logger.warning(f"[LINKEDIN] '{palavra_chave}': busca falhou")
+            todas_vagas = []
+        else:
+            todas_vagas = self._extrair_vagas_da_pagina(response.content, None)[:limite]
             logger.info(
-                f"[LINKEDIN] Página {pagina + 1}: {len(vagas_pagina)} vagas "
-                f"(acumulado: {len(todas_vagas)})"
+                f"[LINKEDIN] '{palavra_chave}': {len(todas_vagas)} vagas coletadas"
             )
-
-            eh_ultima_pagina = (pagina == max_paginas - 1)
-            if not eh_ultima_pagina:
-                delay_real = self._delay_gaussiano_clampado(
-                    self._PAUSA_INTERMEDIARIA_MEDIA,
-                    self._PAUSA_INTERMEDIARIA_DESVIO,
-                    self._PAUSA_INTERMEDIARIA_MIN,
-                    self._PAUSA_INTERMEDIARIA_MAX,
-                )
-                logger.info(
-                    f"[LINKEDIN] Pausa intermediária de {delay_real:.1f}s "
-                    f"antes da página {pagina + 2}"
-                )
-
-        rotulo_log = modalidade_rotulo or 'todas'
-        logger.info(
-            f"[LINKEDIN] '{palavra_chave}' ({rotulo_log}): {len(todas_vagas)} vagas coletadas"
-        )
 
         self._delay_gaussiano(
             self._DELAY_ENTRE_KEYWORDS_MEDIA,
