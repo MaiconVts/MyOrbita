@@ -1,5 +1,22 @@
 # Pendências — myorbita-web
 
+## Próximo passo — backend (retomar daqui)
+Código do backend fechado em 05/10/2026 (detalhes em `STATUS.md` e `BACKEND.md`). Falta só conferir as execuções reais depois do push:
+1. **Gupy** (cron 06:42 UTC): rotas `/vagas/*/gupy` voltam a encher pelo endpoint novo.
+2. **LinkedIn DEV** (07:45 UTC) e **ADV** (15:07 UTC): agora uma requisição por keyword. Esperado: DEV ~25 min, ADV ~40 min (antes ~6 h). A modalidade das vagas do LinkedIn passa a vir da localização; a maioria fica "Não informado" (antes saía tudo "Remoto", errado), então o filtro Remoto do site vai encolher.
+3. **Enriquecedor:** dispara sozinho quando o ADV termina; no log, contar atualizadas, sem contrato e falhas.
+4. **Testes** (workflow novo): verde no push.
+- Se alguma coleta vier abaixo do mínimo, o job falha de propósito e as vagas antigas ficam (ver `scraper_runner.coleta_saudavel`).
+- Ideia futura: tirar a modalidade da página interna (JSON-LD `jobLocationType`) no enriquecedor, já que o card só traz a cidade.
+- Se o ADV passar de 90 min ou o enriquecedor de 120 min, rever o `timeout-minutes` do workflow.
+- Ressalva aceita: com três disparos simultâneos no grupo `linkedin-firebase`, o pendente é cancelado. Evite disparo manual no horário de uma coleta.
+
+### Backlog do backend (sem bloqueio)
+- Modalidade pela página interna (JSON-LD `jobLocationType`) no enriquecedor, já que o card só traz a cidade.
+- Ruff no workflow de testes e proteção da `main` exigindo o job de testes.
+- Trava das dependências com hashes (`pip-compile`); hoje só as diretas estão fixadas.
+- Teste de integração com o emulador do Firebase (ver `BACKEND.md`, suposições).
+
 ## Concluído (05/10/2026): redesign Carta Estelar
 - Contrato da direção em `.impeccable/surfaces/myorbita-web-src-pages-home-jsx.md`.
 - **Home (landing):**
@@ -35,7 +52,6 @@
 
 ## Em aberto: só backend e segurança
 - **Ko-fi:** preencher `SITE.apoio` em `myorbita-web/src/config/site.js` com a URL da página (é a única ação do dono no front).
-- **Backend Gupy:** descobrir o endpoint novo e não gravar `ref.set({})` com lista vazia (ver `STATUS.md`, itens 1 a 3).
 - **Página por vaga com JobPosting:** depende do backend. Precisa de ID estável por vaga e de dados no build (ou SSR). Também é preciso confirmar se o Google aceita JobPosting de agregador com vagas do LinkedIn.
 - **Recuperar o histórico apagado:** são dados do Firebase (backend).
 - **Segurança:**
