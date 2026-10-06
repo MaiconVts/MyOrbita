@@ -1,30 +1,38 @@
 name: Scraper LinkedIn — ADV
 
 on:
-  # Execução automática diária às 12:00 BRT (15:00 UTC).
-  # Gap de ~7h15min após o workflow DEV (04:45 BRT) — tempo mais que
-  # suficiente para DEV finalizar (~2h40min) antes de ADV começar.
-  # Isolamento total: se DEV estourar o limite de 6h, ADV ainda roda.
+  # Execução automática diária às 12:07 BRT (15:07 UTC; fora do minuto cheio, que o GitHub mais atrasa), bem depois do DEV.
   schedule:
-    - cron: '0 15 * * *'
+    - cron: '7 15 * * *'
   # Permite rodar manualmente via Actions → Run workflow
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+# DEV, ADV e enriquecedor gravam nas rotas do LinkedIn: um de cada vez.
+# Um disparo manual simultâneo espera na fila em vez de rodar em paralelo.
+concurrency:
+  group: linkedin-firebase
+  cancel-in-progress: false
 
 jobs:
   scrape:
     name: Executar scraper LinkedIn (ADV)
     runs-on: ubuntu-latest
 
-    # Categoria ADV é significativamente menor que DEV (~15-20 keywords
-    # vs 78 do DEV), então a duração esperada é bem inferior ao limite
-    # de 6h do GitHub Actions. Sem timeout-minutes explícito, usa o default.
+    # Uma requisição por keyword (~6s de delay + ~8s de cooldown):
+    # 153 keywords levam cerca de 40min. O teto corta execução travada.
+    timeout-minutes: 90
 
     steps:
       - name: Checkout do repositório
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Python 3.11
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -47,7 +55,7 @@ jobs:
 
       - name: Upload do log (sempre, mesmo em falha)
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: scraper-linkedin-adv-log
           path: scraper.log
