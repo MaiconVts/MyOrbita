@@ -1,6 +1,7 @@
 from scrapers.linkedin_enricher import LinkedinEnricher
 from scraper_runner import configurar_logging, inicializar_firebase
 import logging
+import sys
 
 logger = logging.getLogger(__name__)
 
@@ -17,5 +18,11 @@ if __name__ == '__main__':
 
     enricher = LinkedinEnricher()
 
-    for rota in ROTAS:
-        enricher.enriquecer_rota(rota, limite=LIMITE_POR_ROTA)
+    rotas_ilegiveis = [
+        rota for rota in ROTAS
+        if enricher.enriquecer_rota(rota, limite=LIMITE_POR_ROTA) is None
+    ]
+
+    if rotas_ilegiveis:
+        logger.error(f"[ENRICHER] Rotas que não puderam ser lidas: {rotas_ilegiveis}")
+        sys.exit(1)
