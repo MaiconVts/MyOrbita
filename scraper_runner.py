@@ -6,7 +6,9 @@ Responsabilidade Única: coordenar o fluxo de execução de um scraper qualquer.
 - Inicializa Firebase
 - Carrega queries da categoria (dev/adv)
 - Executa buscas com deduplicação 3 níveis
-- Checkpoint Firebase a cada 10 keywords + envio final completo
+- Grava cada combinação no Firebase via update() (merge, nunca set())
+- No fim, remove as vagas expiradas só se a coleta foi saudável;
+  senão, falha o job (exit 1)
 - Imprime métricas
 
 Cada main (main_gupy, main_linkedin) importa daqui e só precisa:
@@ -83,6 +85,8 @@ class ScraperProtocol(Protocol):
 # ============================================================
 FIREBASE_KEY_PATH = os.getenv("FIREBASE_KEY_PATH")
 FIREBASE_DB_URL = os.getenv("FIREBASE_DB_URL")
+# Tempo limite (s) de cada chamada HTTP do SDK ao Firebase; o padrão do SDK é 120s.
+FIREBASE_HTTP_TIMEOUT_S = 60
 
 
 def inicializar_firebase():
@@ -90,7 +94,8 @@ def inicializar_firebase():
     if not firebase_admin._apps:
         cred = credentials.Certificate(FIREBASE_KEY_PATH)
         firebase_admin.initialize_app(cred, {
-            'databaseURL': FIREBASE_DB_URL
+            'databaseURL': FIREBASE_DB_URL,
+            'httpTimeout': FIREBASE_HTTP_TIMEOUT_S,
         })
         logger.info("Conexão com Firebase inicializada com sucesso!")
 
@@ -114,25 +119,87 @@ def carregar_snapshot_firebase(rota: str) -> dict:
         return {}
 
 
-def enviar_para_firebase(lista_vagas: list, rota: str):
+_CONTRATO_VAZIO = ('Não informado', '', None)
+_TAMANHO_LOTE_FIREBASE = 500
+
+
+def _montar_payload(lista_vagas: list, ids_existentes: set) -> dict:
     """
-    Upload da lista de vagas para o Firebase via ref.set().
-    ref.set() substitui todos os dados na rota — intencional,
-    sempre queremos a versão mais atualizada sem acumular lixo.
-    Vagas expiradas somem automaticamente a cada execução completa.
+    Monta o payload multi-caminho do update().
+
+    Vaga nova entra inteira. Vaga que já existe é gravada campo a campo
+    ('id/campo') e, se o scraper não achou contrato, o campo tipo_contrato
+    fica de fora — assim o valor gravado pelo enricher (mesmo durante
+    esta execução) não volta para 'Não informado'.
     """
+    payload = {}
+    for vaga in lista_vagas:
+        id_vaga = vaga['id']
+        if id_vaga not in ids_existentes:
+            payload[id_vaga] = vaga
+            continue
+        for campo, valor in vaga.items():
+            if campo == 'tipo_contrato' and valor in _CONTRATO_VAZIO:
+                continue
+            payload[f"{id_vaga}/{campo}"] = valor
+    return payload
+
+
+def _atualizar_em_lotes(rota: str, payload: dict):
+    """update() em lotes, para não mandar um PATCH gigante de uma vez."""
+    ref = db.reference(rota)
+    chaves = list(payload.keys())
+    for i in range(0, len(chaves), _TAMANHO_LOTE_FIREBASE):
+        ref.update({k: payload[k] for k in chaves[i:i + _TAMANHO_LOTE_FIREBASE]})
+
+
+def enviar_para_firebase(lista_vagas: list, rota: str, ids_existentes: set) -> bool:
+    """
+    Grava vagas na rota via update() (merge), nunca via set().
+
+    O set() trocava a rota inteira pelo que a execução tinha acumulado até
+    ali: o site via rota parcial durante a coleta, e uma lista vazia
+    apagava a rota (foi o que aconteceu com a Gupy em 01/10). Com update(),
+    a rota só ganha ou atualiza vagas; as expiradas saem em remover_expiradas().
+    """
+    if not lista_vagas:
+        logger.warning(f"[FIREBASE]: lista vazia para '{rota}', nada enviado.")
+        return False
     try:
-        ref = db.reference(rota)
-        vagas_dict = {vaga['id']: vaga for vaga in lista_vagas}
-        ref.set(vagas_dict)
-        logger.info(f"[FIREBASE]: {len(lista_vagas)} vagas enviadas para '{rota}' com sucesso.")
+        _atualizar_em_lotes(rota, _montar_payload(lista_vagas, ids_existentes))
+        logger.info(f"[FIREBASE]: {len(lista_vagas)} vagas gravadas em '{rota}'.")
+        return True
     except Exception as e:
         logger.error(f"[FIREBASE ERRO]: Falha ao enviar dados. Erro: {str(e)}")
+        return False
+
+
+def remover_expiradas(ids_coletados: set, ids_existentes: set, rota: str) -> int:
+    """Apaga da rota as vagas do snapshot inicial que não apareceram nesta execução."""
+    expiradas = ids_existentes - ids_coletados
+    if not expiradas:
+        return 0
+    try:
+        _atualizar_em_lotes(rota, {id_vaga: None for id_vaga in expiradas})
+        logger.info(f"[FIREBASE]: {len(expiradas)} vagas expiradas removidas de '{rota}'.")
+        return len(expiradas)
+    except Exception as e:
+        logger.error(f"[FIREBASE ERRO]: Falha ao remover expiradas. Erro: {str(e)}")
+        return 0
 
 
 # ============================================================
 # CONFIGURAÇÕES DE QUERIES
 # ============================================================
+# Abaixo disso a coleta é tratada como quebrada: o job falha (exit 1) e as
+# vagas expiradas não são removidas. Sobrescreva por categoria com
+# configuracoes_gerais.minimo_vagas no JSON de queries.
+MINIMO_VAGAS_PADRAO = 50
+# Coleta menor que esta fração do snapshot inicial também conta como quebrada
+# (ex.: bloqueio do LinkedIn no meio da execução), para não esvaziar a rota.
+PROPORCAO_MINIMA_SNAPSHOT = 0.5
+
+
 def carregar_configuracoes(arquivo_queries: str):
     """Lê JSON de queries da categoria."""
     try:
@@ -149,6 +216,7 @@ def extrair_parametros(config: dict) -> dict:
         'palavras_chave': config['filtros_de_busca']['palavras_chave'],
         'modalidades': config['filtros_de_busca']['modalidades'],
         'limite_busca': config['configuracoes_gerais']['limite_vagas_por_pesquisa'],
+        'minimo_vagas': config['configuracoes_gerais'].get('minimo_vagas', MINIMO_VAGAS_PADRAO),
     }
 
 
@@ -157,7 +225,7 @@ def exibir_info_configuracoes(parametros: dict, plataforma: str):
     total_combinacoes = len(parametros['palavras_chave']) * len(parametros['modalidades'])
     logger.info(f"Configurações: {len(parametros['palavras_chave'])} palavras-chave × "
                 f"{len(parametros['modalidades'])} modalidades = {total_combinacoes} combinações")
-    logger.info(f"Limite por busca: {parametros['limite_busca']} vagas (com paginação automática)")
+    logger.info(f"Limite por busca: {parametros['limite_busca']} vagas (uma requisição por palavra no LinkedIn)")
     logger.info(f"Plataforma alvo: {plataforma.upper()}")
     logger.info("-" * 60)
 
@@ -254,12 +322,9 @@ def filtrar_duplicadas(vagas: list, urls_vistas: set, ids_firebase: set) -> tupl
 # ============================================================
 def executar_buscas(scraper: ScraperProtocol, parametros: dict, snapshot_firebase: dict, rota: str) -> dict:
     """
-    Loop de buscas: itera palavras × modalidades, aplica dedup,
-    faz checkpoint no Firebase a cada 10 keywords e retorna agregado.
-
-    Checkpoint via ref.set() a cada 10 keywords garante que um timeout
-    no GitHub Actions não perde mais de ~10 keywords de progresso.
-    O ref.set() final em finalizar_scraping entrega o snapshot completo.
+    Loop de buscas: itera palavras × modalidades, aplica dedup e grava
+    cada combinação no Firebase via update() (merge). Um timeout no
+    GitHub Actions perde no máximo a combinação em andamento.
     """
     ids_firebase = set(snapshot_firebase.keys())
     urls_vistas = set()
@@ -269,7 +334,6 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, snapshot_firebas
     total_ja_no_firebase = 0
     total_fora_escopo = 0
     inicio = time.time()
-    keywords_desde_checkpoint = 0
 
     for palavra in parametros['palavras_chave']:
         termos_keyword = _termos_da_keyword(palavra)
@@ -291,31 +355,17 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, snapshot_firebas
             if n_fora_escopo:
                 logger.warning(f"  🚫 {n_fora_escopo} vaga(s) fora do escopo rejeitada(s).")
 
-            # Preserva tipo_contrato já enriquecido pelo enricher.
-            # O ref.set() do scraper sobrescreveria com "Não informado" sem este passo.
-            for vaga in vagas_novas:
-                existente = snapshot_firebase.get(vaga['id'])
-                if existente:
-                    tipo_existente = existente.get('tipo_contrato', 'Não informado')
-                    if tipo_existente not in ('Não informado', '', None):
-                        vaga['tipo_contrato'] = tipo_existente
-
+            # Grava só as vagas desta combinação (merge). Se o job for
+            # cancelado, a rota fica com as vagas de ontem + as de hoje,
+            # nunca menor do que estava.
             if vagas_novas:
                 logger.info(f"  ✅ {len(vagas_novas)} vagas únicas adicionadas.")
                 todas_as_vagas.extend(vagas_novas)
-                logger.info(f"  💾 Snapshot: {len(todas_as_vagas)} vagas salvas no Firebase...")
-                enviar_para_firebase(todas_as_vagas, rota)
+                enviar_para_firebase(vagas_novas, rota, ids_firebase)
             elif duplicadas > 0 or ja_firebase > 0:
                 logger.info(f"  ⏭️ {duplicadas} duplicadas, {ja_firebase} já no Firebase.")
             else:
                 logger.info(f"  ⚠️ Nenhuma vaga encontrada.")
-
-        # Checkpoint a cada 10 keywords (loop externo — por palavra, não por combinação)
-        keywords_desde_checkpoint += 1
-        if keywords_desde_checkpoint >= 10:
-            logger.info(f"  💾 Checkpoint: {len(todas_as_vagas)} vagas salvas até agora...")
-            enviar_para_firebase(todas_as_vagas, rota)
-            keywords_desde_checkpoint = 0
 
     duracao = time.time() - inicio
 
@@ -332,8 +382,25 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, snapshot_firebas
 # ============================================================
 # FINALIZAÇÃO — métricas + snapshot final completo
 # ============================================================
-def finalizar_scraping(resultados: dict, rota: str):
-    """Imprime métricas da categoria e envia snapshot final para o Firebase."""
+def coleta_saudavel(total_vagas: int, total_snapshot: int, minimo_vagas: int) -> bool:
+    """A coleta só vale como completa se passar do mínimo absoluto e da fração do snapshot."""
+    if total_vagas < minimo_vagas:
+        logger.error(f"[SAÚDE] Coleta de {total_vagas} vagas abaixo do mínimo ({minimo_vagas}).")
+        return False
+    if total_vagas < total_snapshot * PROPORCAO_MINIMA_SNAPSHOT:
+        logger.error(
+            f"[SAÚDE] Coleta de {total_vagas} vagas é menos de "
+            f"{PROPORCAO_MINIMA_SNAPSHOT:.0%} das {total_snapshot} que já estavam na rota."
+        )
+        return False
+    return True
+
+
+def finalizar_scraping(resultados: dict, rota: str, ids_existentes: set, minimo_vagas: int) -> bool:
+    """
+    Imprime métricas e, se a coleta foi saudável, remove as vagas expiradas.
+    Retorna False quando a coleta veio quebrada (o job deve falhar).
+    """
     duracao = resultados['duracao_segundos']
     total_vagas = len(resultados['vagas'])
 
@@ -351,11 +418,16 @@ def finalizar_scraping(resultados: dict, rota: str):
         taxa_duplicata = resultados['total_duplicadas'] / (total_vagas + resultados['total_duplicadas']) * 100 if (total_vagas + resultados['total_duplicadas']) > 0 else 0
         logger.info(f"  • Performance: {vagas_por_segundo:.1f} vagas/segundo")
         logger.info(f"  • Taxa de duplicatas: {taxa_duplicata:.1f}%")
-        enviar_para_firebase(resultados['vagas'], rota)
+
+    saudavel = coleta_saudavel(total_vagas, len(ids_existentes), minimo_vagas)
+    if saudavel:
+        ids_coletados = {vaga['id'] for vaga in resultados['vagas']}
+        remover_expiradas(ids_coletados, ids_existentes, rota)
     else:
-        logger.warning("Nenhuma vaga nova encontrada. Firebase não atualizado.")
+        logger.warning(f"Coleta quebrada: vagas expiradas mantidas em '{rota}' até a próxima coleta completa.")
 
     logger.info("=" * 60)
+    return saudavel
 
 
 # ============================================================
@@ -382,6 +454,7 @@ def executar(scraper: ScraperProtocol, plataforma: str, categorias: dict):
 
     inicializar_firebase()
     inicio_total = time.time()
+    categorias_quebradas = []
 
     for nome_categoria, categoria in categorias.items():
         logger.info(f"\n{'=' * 60}")
@@ -390,6 +463,7 @@ def executar(scraper: ScraperProtocol, plataforma: str, categorias: dict):
 
         config = carregar_configuracoes(categoria['queries'])
         if not config:
+            categorias_quebradas.append(nome_categoria)
             continue
 
         parametros = extrair_parametros(config)
@@ -398,10 +472,20 @@ def executar(scraper: ScraperProtocol, plataforma: str, categorias: dict):
         snapshot_firebase = carregar_snapshot_firebase(categoria['rota'])
 
         resultados = executar_buscas(scraper, parametros, snapshot_firebase, categoria['rota'])
-        finalizar_scraping(resultados, categoria['rota'])
+        saudavel = finalizar_scraping(
+            resultados, categoria['rota'], set(snapshot_firebase.keys()), parametros['minimo_vagas']
+        )
+        if not saudavel:
+            categorias_quebradas.append(nome_categoria)
 
     duracao_total = time.time() - inicio_total
     logger.info(f"\n{'=' * 60}")
     logger.info(f"EXECUÇÃO COMPLETA — {plataforma.upper()}")
     logger.info(f"  Duração total: {duracao_total / 60:.1f} minutos ({duracao_total:.0f}s)")
     logger.info(f"{'=' * 60}")
+
+    # Falha o job para o GitHub Actions ficar vermelho: antes, 0 vagas
+    # coletadas terminava como sucesso e ninguém percebia a quebra.
+    if categorias_quebradas:
+        logger.error(f"Categorias com coleta quebrada: {', '.join(categorias_quebradas)}")
+        sys.exit(1)

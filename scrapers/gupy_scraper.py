@@ -7,6 +7,11 @@ logger = logging.getLogger(__name__)
 class GupyScraper(BaseScraper):
     """Implementação do scraper específico para a API da Gupy."""
 
+    # A API recusa limit > 100 ("Failed to fetch jobs").
+    LIMITE_MAXIMO_API = 100
+    # Teto de segurança por combinação (11 páginas, como no endpoint antigo).
+    PAGINAS_MAXIMAS = 11
+
     def __init__(self):
         super().__init__(nome_plataforma="Gupy")
 
@@ -35,6 +40,7 @@ class GupyScraper(BaseScraper):
             'vacancy_legal_entity': 'PJ',
             'vacancy_type_associated': 'Associado',
             'vacancy_type_associate': 'Associado',
+            'vacancy_type_parter': 'Sócio',
             'vacancy_type_freelancer': 'Freelancer',
             'vacancy_type_talent_pool': 'Banco de Talentos',
             'vacancy_type_autonomous': 'Autônomo',
@@ -96,7 +102,7 @@ class GupyScraper(BaseScraper):
                 state=item.get('state'),
                 country=item.get('country'),
                 workplace_type=item.get('workplaceType'),
-                is_remote=item.get('isRemoteWork', False),
+                is_remote=item.get('isRemoteWork', item.get('workplaceType') == 'remote'),
                 tipo_contrato=self._mapear_tipo_contrato(item.get('type')),
                 prazo_inscricao=item.get('applicationDeadline'),
                 pcd=item.get('disabilities', False),
@@ -109,62 +115,48 @@ class GupyScraper(BaseScraper):
         """
         Implementação obrigatória do método de busca.
 
-        Paginação inteligente: se a API reporta mais vagas do que o limite
-        por página, faz requests adicionais incrementando o offset.
-        Decodificação JSON forçada como UTF-8 para evitar mojibake em
-        títulos/empresas com acentos.
+        Endpoint trocado em 10/2026: employability-portal.gupy.io/api/v1/jobs
+        passou a dar 404; o portal agora usa portal.gupy.io/api/job-search/jobs.
+        A resposta mantém o formato {data, pagination}, mas pagination.total
+        vem travado em 100 e limit acima de 100 devolve erro. Por isso a
+        paginação segue até vir uma página incompleta, não pelo total.
+        Decodificação JSON forçada como UTF-8 para evitar mojibake.
         """
-        url = "https://employability-portal.gupy.io/api/v1/jobs"
-        tipo_trabalho = self._mapear_modalidade(modalidade)
+        url = "https://portal.gupy.io/api/job-search/jobs"
+        tamanho_pagina = min(limite, self.LIMITE_MAXIMO_API)
 
         parametros = {
             "jobName": palavra_chave,
-            "limit": limite,
+            "limit": tamanho_pagina,
             "offset": 0,
-            "workplaceType": tipo_trabalho,
+            "workplaceType": self._mapear_modalidade(modalidade),
         }
 
+        todas_vagas = []
         try:
-            # --- Primeira página ---
-            response = self.fazer_requisicao_segura(url, params=parametros)
+            for pagina in range(self.PAGINAS_MAXIMAS):
+                parametros['offset'] = pagina * tamanho_pagina
+                response = self.fazer_requisicao_segura(url, params=parametros)
 
-            if response.status_code != 200:
-                logger.warning(f"HTTP {response.status_code} para '{palavra_chave}' + '{modalidade}'")
-                return []
+                if response.status_code != 200:
+                    logger.warning(
+                        f"HTTP {response.status_code} para '{palavra_chave}' + '{modalidade}' "
+                        f"(página {pagina + 1})"
+                    )
+                    break
 
-            # ⚠️ FIX UTF-8: decodifica via bytes em vez de response.json()
-            dados = self._decodificar_json_utf8(response)
-            lista_resultados = dados.get('data', []) if isinstance(dados, dict) else dados
-            todas_vagas = self._extrair_vagas_da_pagina(lista_resultados)
+                # ⚠️ FIX UTF-8: decodifica via bytes em vez de response.json()
+                dados = self._decodificar_json_utf8(response)
+                resultados = dados.get('data', []) if isinstance(dados, dict) else dados
+                todas_vagas.extend(self._extrair_vagas_da_pagina(resultados))
 
-            # --- Paginação ---
-            total_disponivel = dados.get('pagination', {}).get('total', 0) if isinstance(dados, dict) else 0
-
-            if total_disponivel > limite:
-                paginas_restantes = (total_disponivel - limite + limite - 1) // limite
-                paginas_restantes = min(paginas_restantes, 10)  # teto de segurança
-
-                logger.info(f"Paginando '{palavra_chave}' ({modalidade}): {total_disponivel} vagas, {paginas_restantes} páginas extras")
-
-                for pagina in range(1, paginas_restantes + 1):
-                    parametros['offset'] = pagina * limite
-
-                    response = self.fazer_requisicao_segura(url, params=parametros)
-                    if response.status_code != 200:
-                        logger.warning(f"Paginação interrompida na página {pagina + 1} — HTTP {response.status_code}")
-                        break
-
-                    dados_pagina = self._decodificar_json_utf8(response)
-                    resultados_pagina = dados_pagina.get('data', []) if isinstance(dados_pagina, dict) else dados_pagina
-
-                    if not resultados_pagina:
-                        break
-
-                    vagas_pagina = self._extrair_vagas_da_pagina(resultados_pagina)
-                    todas_vagas.extend(vagas_pagina)
+                if len(resultados) < tamanho_pagina:
+                    break
+            else:
+                logger.info(f"'{palavra_chave}' ({modalidade}): teto de {self.PAGINAS_MAXIMAS} páginas atingido.")
 
             return todas_vagas
 
         except Exception as e:
             logger.error(f"Falha ao buscar vagas na Gupy — {str(e)}")
-            return []
+            return todas_vagas
