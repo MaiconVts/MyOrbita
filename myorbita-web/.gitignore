@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# ai-backend: só local (para versionar, apague este bloco)
+/.claude/
+/docs/backend/
+/BACKEND.md

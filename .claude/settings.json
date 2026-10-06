@@ -62,6 +62,17 @@
             "statusMessage": "Checking UI changes"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/backend-hook.sh\" ] || bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/backend-hook.sh\" post-edit",
+            "timeout": 90,
+            "statusMessage": "Backend: lint e formatação"
+          }
+        ]
       }
     ],
     "Stop": [
@@ -72,6 +83,42 @@
             "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" ] || \"${CLAUDE_PROJECT_DIR}/.claude/skills/impeccable/scripts/impeccable\" hook",
             "timeout": 30,
             "statusMessage": "Design deep pass"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/backend-hook.sh\" ] || bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/backend-hook.sh\" stop",
+            "timeout": 600,
+            "statusMessage": "Backend: build e testes unitários"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit *)",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/backend-hook.sh\" ] || bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/backend-hook.sh\" pre-commit",
+            "timeout": 600,
+            "statusMessage": "Backend: testes de integração e de API antes do commit"
+          }
+        ]
+      },
+      {
+        "matcher": "PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "PowerShell(git commit *)",
+            "command": "[ ! -f \"${CLAUDE_PROJECT_DIR}/.claude/hooks/backend-hook.sh\" ] || bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/backend-hook.sh\" pre-commit",
+            "timeout": 600,
+            "statusMessage": "Backend: testes de integração e de API antes do commit"
           }
         ]
       }

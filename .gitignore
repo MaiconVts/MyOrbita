@@ -2,16 +2,19 @@
 secrets/
 *adminsdk*.json
 .env
-code-hive-web/.env
+.env.*
+!.env.example
 
 # --- Python ---
 __pycache__/
 *.py[cod]
 *$py.class
 venv/
+.venv/
 
 # --- Arquivos Temporários do Scraper ---
 db_temp.json
+scraper.log
 
 # --- Node.js ---
 node_modules/
@@ -24,27 +27,24 @@ yarn.lock
 .DS_Store
 Thumbs.db
 
-# --- Logs ---
-scraper.log
-
-.claude/# Editores
+# --- Editores ---
 .vs/
 .vscode/
 .idea/
-# Dependências
-# Variáveis de ambiente (segredos)
-.env.*
-!.env.example
-# Configurações locais (pessoais, fora do Git)
+
+# --- Configurações locais (pessoais, fora do Git) ---
 .claude/settings.local.json
 .impeccable/*.local.json
-# Saída do Playwright MCP (snapshots e logs)
+.impeccable/questions/
+
+# --- Saída do Playwright MCP (snapshots e logs) ---
 .playwright-mcp/
-# Sistema operacional
-# ai-design: linhas do template
+
+# --- ai-design: linhas do template ---
 qualidade/relatorios/
 qualidade/exemplo/dist/
-# ai-design: só local (para versionar, apague este bloco)
+
+# --- ai-design: só local (para versionar, apague este bloco) ---
 /.claude/
 /.mcp.json
 /CLAUDE.md
@@ -52,3 +52,6 @@ qualidade/exemplo/dist/
 /prompts/
 /qualidade/
 /skills-lock.json
+# ai-backend: só local (para versionar, apague este bloco)
+/docs/backend/
+/BACKEND.md
