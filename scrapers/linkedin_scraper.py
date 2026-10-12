@@ -34,10 +34,12 @@ Camadas de proteção (da mais fundamental à mais avançada):
 
 Filtros validados empiricamente:
     - geoId=106057199 — força vagas brasileiras apenas
-    - f_WT e start NÃO funcionam para visitante: o LinkedIn ignora os dois e
-      devolve sempre as mesmas ~60 vagas (conferido em 05/10/2026). Por isso
-      a busca faz uma requisição por keyword, sem filtro de modalidade, e a
-      modalidade de cada vaga é inferida da localização do card.
+    - A página /jobs/search ignora f_WT e start para visitante e devolve só
+      ~60 vagas (conferido em 05/10/2026). A busca usa o endpoint de visitante
+      /jobs-guest/jobs/api/seeMoreJobPostings/search, que pagina com start de
+      10 em 10 até ~1000 resultados; o fim vem como 200 com corpo quase vazio
+      (conferido em 12/10/2026). Sem filtro de modalidade: a modalidade de
+      cada vaga é inferida da localização do card.
 
 Seletores CSS confirmados (Abril/2026):
     Card container:  div.base-card.job-search-card
@@ -344,6 +346,11 @@ class LinkedinScraper(BaseScraper):
 
     _GEO_ID_BRASIL = '106057199'
 
+    # --- Paginação do endpoint de visitante ---
+    # Para de paginar uma keyword depois de N páginas seguidas sem nenhuma
+    # vaga inédita nesta execução (o resto já veio por outra keyword).
+    _MAX_PAGINAS_SEM_NOVIDADE = 2
+
     def __init__(self):
         super().__init__(nome_plataforma="LinkedIn")
 
@@ -354,6 +361,7 @@ class LinkedinScraper(BaseScraper):
         self._requests_com_sucesso: int = 0
         self._erros_consecutivos: int = 0
         self._ultimo_referer: str = 'https://www.google.com/'
+        self._ids_vistos: set = set()
 
     # ==================================================================
     # CAMADA 1 — Session e TLS Fingerprint
@@ -443,7 +451,13 @@ class LinkedinScraper(BaseScraper):
     def _detectar_bloqueio(
             self,
             response,
-            pagina_interna: bool = False) -> str | None:
+            pagina_interna: bool = False,
+            fragmento: bool = False) -> str | None:
+        """
+        `fragmento`: resposta do endpoint paginado (só os <li> dos cards).
+        Página curta é normal ali (poucas vagas ou fim da lista), então só os
+        sinais de authwall/captcha contam.
+        """
         content = response.content
         content_text = content.decode('utf-8', errors='ignore').lower()
         content_size = len(content)
@@ -455,6 +469,9 @@ class LinkedinScraper(BaseScraper):
         for sinal in _CAPTCHA_SIGNALS:
             if sinal in content_text:
                 return f"authwall/captcha detectado (sinal: '{sinal}')"
+
+        if fragmento:
+            return None
 
         if content_size < _TAMANHO_MINIMO_RESPONSE:
             if 'no-results' in content_text or 'jobs-search' in content_text:
@@ -538,6 +555,9 @@ class LinkedinScraper(BaseScraper):
         # ⚠️ FIX UTF-8: decodificamos explicitamente como UTF-8 antes de passar
         # pra lxml, garantindo que acentos sejam interpretados corretamente.
         html_string = self._decodificar_html_utf8(html_content)
+        if 'job-search-card' not in html_string:
+            # Fim da paginação vem quase vazio, e lxml rejeita documento vazio.
+            return []
         tree = lxml_html.fromstring(html_string)
         return tree.xpath(
             '//div[contains(@class, "base-card") and contains(@class, "job-search-card")]'
@@ -731,23 +751,29 @@ class LinkedinScraper(BaseScraper):
     # CAMADA 8 — Request com Todas as Proteções
     # ==================================================================
 
-    def _montar_url(self, palavra_chave: str) -> str:
+    def _montar_url(self, palavra_chave: str, start: int | None = None) -> str:
         """
-        Monta URL de busca do LinkedIn (sem f_WT nem start: o LinkedIn ignora os dois).
+        Monta URL de busca do LinkedIn. Com `start`, aponta para o endpoint
+        paginado de visitante; sem ele, para a página /jobs/search (usada
+        como Referer, como faria o navegador).
 
         ⚠️ quote_plus garante UTF-8 correto na URL: keywords como "C# .NET"
         viram "C%23+.NET" (não corrompe acentos em queries em português).
         """
         keyword_encoded = quote_plus(palavra_chave)
-        url = (
-            f"https://www.linkedin.com/jobs/search"
+        query = (
             f"?keywords={keyword_encoded}"
             f"&location=Brasil"
             f"&geoId={self._GEO_ID_BRASIL}"
         )
-        return url
+        if start is None:
+            return f"https://www.linkedin.com/jobs/search{query}"
+        return (
+            f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search"
+            f"{query}&start={start}"
+        )
 
-    def _fazer_request(self, url: str, pagina_interna: bool = False):
+    def _fazer_request(self, url: str, pagina_interna: bool = False, fragmento: bool = False):
         """Request com todas as proteções ativas."""
         if self._limite_global_atingido():
             return None
@@ -768,13 +794,14 @@ class LinkedinScraper(BaseScraper):
 
             if response.status_code == 200:
                 motivo_bloqueio = self._detectar_bloqueio(
-                    response, pagina_interna=pagina_interna)
+                    response, pagina_interna=pagina_interna, fragmento=fragmento)
                 if motivo_bloqueio:
                     self._registrar_erro(motivo_bloqueio)
                     return None
 
                 self._registrar_sucesso()
-                self._ultimo_referer = url
+                if not fragmento:
+                    self._ultimo_referer = url
                 return response
 
             if response.status_code == 429:
@@ -809,14 +836,16 @@ class LinkedinScraper(BaseScraper):
         """
         Implementação obrigatória do método de busca.
 
-        Faz uma única requisição por keyword. `modalidade` é aceito pelo
-        contrato do BaseScraper, mas não filtra nada: o LinkedIn ignora f_WT
-        e start para visitante, então filtrar ou paginar só repetia as mesmas
-        vagas com o rótulo de modalidade errado. A modalidade de cada vaga vem
-        da localização do card. `limite` corta a lista devolvida.
+        Pagina o endpoint de visitante (10 vagas por página) até `limite`, até
+        a lista acabar ou até _MAX_PAGINAS_SEM_NOVIDADE páginas seguidas sem
+        vaga inédita nesta execução. Devolve também as vagas já vistas: o
+        dedup e a relevância são do runner. `modalidade` é aceito pelo
+        contrato do BaseScraper, mas não filtra nada (f_WT não funciona para
+        visitante); a modalidade de cada vaga vem da localização do card.
 
-        Pausas: delay curto antes do request (~6s gaussiano) e cooldown entre
-        keywords (~8s).
+        Pausas: delay antes de cada request (~6s gaussiano) e cooldown entre
+        keywords (~8s). Página que falha (ex.: 429, que já espera dentro de
+        _fazer_request) é tentada mais uma vez antes de desistir da keyword.
         """
         if self._limite_global_atingido():
             return []
@@ -826,16 +855,39 @@ class LinkedinScraper(BaseScraper):
         self._aquecer_session()
         self._verificar_taxa_erro()
 
-        response = self._fazer_request(self._montar_url(palavra_chave))
+        self._ultimo_referer = self._montar_url(palavra_chave)
+        todas_vagas = []
+        paginas_sem_novidade = 0
+        paginas = 0
+        start = 0
 
-        if not response:
-            logger.warning(f"[LINKEDIN] '{palavra_chave}': busca falhou")
-            todas_vagas = []
-        else:
-            todas_vagas = self._extrair_vagas_da_pagina(response.content, None)[:limite]
-            logger.info(
-                f"[LINKEDIN] '{palavra_chave}': {len(todas_vagas)} vagas coletadas"
-            )
+        while len(todas_vagas) < limite:
+            url = self._montar_url(palavra_chave, start)
+            response = (self._fazer_request(url, fragmento=True)
+                        or self._fazer_request(url, fragmento=True))
+            if not response:
+                logger.warning(f"[LINKEDIN] '{palavra_chave}': busca falhou em start={start}")
+                break
+
+            paginas += 1
+            pagina = self._extrair_vagas_da_pagina(response.content, None)
+            if not pagina:
+                break
+
+            ineditas = {v['id'] for v in pagina} - self._ids_vistos
+            self._ids_vistos |= ineditas
+            todas_vagas.extend(pagina)
+
+            paginas_sem_novidade = 0 if ineditas else paginas_sem_novidade + 1
+            if paginas_sem_novidade >= self._MAX_PAGINAS_SEM_NOVIDADE:
+                break
+            start += len(pagina)
+
+        todas_vagas = todas_vagas[:limite]
+        logger.info(
+            f"[LINKEDIN] '{palavra_chave}': {len(todas_vagas)} vagas coletadas "
+            f"({paginas} páginas)"
+        )
 
         self._delay_gaussiano(
             self._DELAY_ENTRE_KEYWORDS_MEDIA,

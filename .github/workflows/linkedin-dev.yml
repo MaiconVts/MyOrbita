@@ -24,7 +24,7 @@ jobs:
 
     # Uma requisição por keyword (~6s de delay + ~8s de cooldown):
     # 87 keywords levam cerca de 25min. O teto corta execução travada.
-    timeout-minutes: 60
+    timeout-minutes: 120
 
     steps:
       - name: Checkout do repositório

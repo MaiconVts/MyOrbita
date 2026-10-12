@@ -1,6 +1,24 @@
 # Pendências — myorbita-web
 
-## Próximo passo — backend (retomar daqui)
+## Próximo passo — cobertura do ADV (12/10/2026, retomar daqui)
+A busca do ADV trouxe uma só vaga para o filtro usado. Mudanças feitas (ainda sem commit):
+- LinkedIn pagina pelo endpoint guest (antes parava em 60 vagas por keyword); ver `docs/05_ANTI_DETECCAO.md`.
+- Runner: relevância antes da deduplicação (vaga rejeitada por uma keyword ficava marcada como vista e se perdia na seguinte), `termos_dominio` no JSON e preposições fora dos termos.
+- ADV com 58 keywords (eram 153, várias fora da área: cartório, árbitro, risco etc.), limite 300; DEV com limite 60. Timeout ADV 180 min, DEV 120 min.
+- Front: "estagiário/estagiária" passam a contar como estágio; vaga remota passa em qualquer UF selecionada.
+
+Conferir após o push: duração do ADV e do DEV, quantas 429 aparecem no log e o total de vagas no ADV (antes 1889 por execução).
+- Teste ao vivo local (12/10) inconclusivo: o IP de casa levou 429 já no 1º pedido (a 1ª página de 'Advogado' veio com 10 vagas, todas relevantes; a 2ª caiu no 429). Validar com disparo manual do workflow ADV.
+- Risco: a paginação multiplica os pedidos (até ~30 por keyword). Se o log mostrar muitas 429, reduzir o limite, aumentar o intervalo entre páginas ou rodar menos keywords por execução.
+
+Em aberto:
+- **Expiração:** `remover_expiradas` apaga toda vaga que não reapareceu na execução, mesmo aberta. Trocar por idade (ex.: 30 dias) ou confirmação do enriquecedor.
+- **Busca textual por estado:** "Minas Gerais" não acha, porque o campo guarda só "MG".
+- **Gupy:** não analisado nesta rodada.
+- Caso de origem: filtro de estado MG no ADV. Conferir após a próxima coleta se MG (mais as remotas) mostra bem mais que 1 vaga.
+- Notebook com redirecionamento para páginas falsas de antivírus: o site está limpo (testado de fora, VirusTotal, DNS = IPs da Vercel); o problema é local (adware/proxy/página inicial). Passos: `netsh winhttp show proxy`, buscador e página inicial do Edge/Firefox, AdwCleaner, Malwarebytes, verificação completa do Defender.
+
+## Backend (05/10/2026)
 Código do backend fechado em 05/10/2026 (detalhes em `STATUS.md` e `BACKEND.md`). Falta só conferir as execuções reais depois do push:
 1. **Gupy** (cron 06:42 UTC): rotas `/vagas/*/gupy` voltam a encher pelo endpoint novo.
 2. **LinkedIn DEV** (07:45 UTC) e **ADV** (15:07 UTC): agora uma requisição por keyword. Esperado: DEV ~25 min, ADV ~40 min (antes ~6 h). A modalidade das vagas do LinkedIn passa a vir da localização; a maioria fica "Não informado" (antes saía tudo "Remoto", errado), então o filtro Remoto do site vai encolher.
@@ -8,7 +26,7 @@ Código do backend fechado em 05/10/2026 (detalhes em `STATUS.md` e `BACKEND.md`
 4. **Testes** (workflow novo): verde no push.
 - Se alguma coleta vier abaixo do mínimo, o job falha de propósito e as vagas antigas ficam (ver `scraper_runner.coleta_saudavel`).
 - Ideia futura: tirar a modalidade da página interna (JSON-LD `jobLocationType`) no enriquecedor, já que o card só traz a cidade.
-- Se o ADV passar de 90 min ou o enriquecedor de 120 min, rever o `timeout-minutes` do workflow.
+- Se o ADV passar de 180 min ou o enriquecedor de 120 min, rever o `timeout-minutes` do workflow.
 - Ressalva aceita: com três disparos simultâneos no grupo `linkedin-firebase`, o pendente é cancelado. Evite disparo manual no horário de uma coleta.
 
 ### Backlog do backend (sem bloqueio)

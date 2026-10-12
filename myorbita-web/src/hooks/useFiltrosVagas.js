@@ -52,7 +52,7 @@ const limparParaBusca = (valor) => {
  * Se o título não bate em NENHUMA, a vaga é "nível indefinido" e passa em qualquer filtro.
  */
 const REGEX_NIVEL = {
-  estagio: /\b(estagio|intern|aprendiz|trainee)\b/,
+  estagio: /\b(estagi\w*|intern|internship|aprendiz|trainee)\b/,
   junior: /\b(junior|jr)\b/,
   pleno: /\b(pleno|mid|middle)\b/,
   senior: /\b(senior|sr|lead|principal|staff)\b/,
@@ -128,6 +128,7 @@ export function useFiltrosVagas(vagasIniciais, inicial = {}) {
   // Vagas com campo ausente passam em QUALQUER seleção daquele filtro.
   // Aplicada em: modalidade, contrato, nível.
   // NÃO aplicada em: estado (UF), PCD (boolean), origem (sempre preenchida).
+  // Exceção no estado: vaga remota passa em qualquer UF.
   const vagasFiltradas = useMemo(() => {
     let resultado = [...vagasIniciais];
 
@@ -171,9 +172,11 @@ export function useFiltrosVagas(vagasIniciais, inicial = {}) {
       });
     }
 
-    // 4. Estado/UF (multi-select OR — sem permissividade: estado desconhecido é excluído)
+    // 4. Estado/UF (multi-select OR — sem permissividade: estado desconhecido é excluído,
+    //    exceto vaga remota, que serve para qualquer UF)
     if (filtrosEstado.length > 0) {
       resultado = resultado.filter((v) => {
+        if (normalizarTexto(v.modalidade).includes("remoto")) return true;
         if (estaAusente(v.state)) return false;
         return filtrosEstado.includes(v.state);
       });

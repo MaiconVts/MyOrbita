@@ -217,6 +217,12 @@ def extrair_parametros(config: dict) -> dict:
         'modalidades': config['filtros_de_busca']['modalidades'],
         'limite_busca': config['configuracoes_gerais']['limite_vagas_por_pesquisa'],
         'minimo_vagas': config['configuracoes_gerais'].get('minimo_vagas', MINIMO_VAGAS_PADRAO),
+        # Quando presente, o título precisa ter um destes termos, seja qual for
+        # a keyword que trouxe a vaga (ver _filtrar_por_relevancia).
+        'termos_dominio': [
+            _normalizar_para_filtro(t).strip()
+            for t in config['configuracoes_gerais'].get('termos_dominio', [])
+        ],
     }
 
 
@@ -225,7 +231,9 @@ def exibir_info_configuracoes(parametros: dict, plataforma: str):
     total_combinacoes = len(parametros['palavras_chave']) * len(parametros['modalidades'])
     logger.info(f"Configurações: {len(parametros['palavras_chave'])} palavras-chave × "
                 f"{len(parametros['modalidades'])} modalidades = {total_combinacoes} combinações")
-    logger.info(f"Limite por busca: {parametros['limite_busca']} vagas (uma requisição por palavra no LinkedIn)")
+    logger.info(f"Limite por busca: {parametros['limite_busca']} vagas")
+    if parametros['termos_dominio']:
+        logger.info(f"Relevância por domínio: {len(parametros['termos_dominio'])} termos")
     logger.info(f"Plataforma alvo: {plataforma.upper()}")
     logger.info("-" * 60)
 
@@ -240,13 +248,19 @@ def _normalizar_para_filtro(texto: str) -> str:
     return re.sub(r'[^a-z0-9]', ' ', sem_acento.lower())
 
 
+_PALAVRAS_VAZIAS = {'de', 'da', 'do', 'das', 'dos', 'em', 'e', 'of', 'and', 'the'}
+
+
 def _termos_da_keyword(keyword: str, min_len: int = 2) -> list[str]:
     """
     Extrai palavras significativas da keyword (>= min_len chars).
     Ex: 'Desenvolvedor Front-end' → ['desenvolvedor', 'front', 'end']
         'C#' → []  (sem termos válidos → filtro desativado para esta keyword)
+        'Analista de Dados' → ['analista', 'dados']  (preposições não contam:
+        'de' sozinho casava com quase qualquer título)
     """
-    return [w for w in _normalizar_para_filtro(keyword).split() if len(w) >= min_len]
+    return [w for w in _normalizar_para_filtro(keyword).split()
+            if len(w) >= min_len and w not in _PALAVRAS_VAZIAS]
 
 
 def _filtrar_por_relevancia(vagas: list, termos_keyword: list[str]) -> tuple[list, int]:
@@ -336,7 +350,7 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, snapshot_firebas
     inicio = time.time()
 
     for palavra in parametros['palavras_chave']:
-        termos_keyword = _termos_da_keyword(palavra)
+        termos_relevancia = parametros['termos_dominio'] or _termos_da_keyword(palavra)
         for modalidade in parametros['modalidades']:
             total_combinacoes += 1
 
@@ -344,16 +358,19 @@ def executar_buscas(scraper: ScraperProtocol, parametros: dict, snapshot_firebas
 
             vagas_encontradas = scraper.buscar_vagas(palavra, modalidade, parametros['limite_busca'])
 
-            vagas_novas, duplicadas, ja_firebase = filtrar_duplicadas(
-                vagas_encontradas, urls_vistas, ids_firebase
-            )
-            total_duplicadas += duplicadas
-            total_ja_no_firebase += ja_firebase
-
-            vagas_novas, n_fora_escopo = _filtrar_por_relevancia(vagas_novas, termos_keyword)
+            # Relevância antes do dedup: uma vaga rejeitada nesta keyword não
+            # pode entrar em urls_vistas, senão some quando outra keyword que a
+            # aceitaria a trouxer de novo.
+            vagas_relevantes, n_fora_escopo = _filtrar_por_relevancia(vagas_encontradas, termos_relevancia)
             total_fora_escopo += n_fora_escopo
             if n_fora_escopo:
                 logger.warning(f"  🚫 {n_fora_escopo} vaga(s) fora do escopo rejeitada(s).")
+
+            vagas_novas, duplicadas, ja_firebase = filtrar_duplicadas(
+                vagas_relevantes, urls_vistas, ids_firebase
+            )
+            total_duplicadas += duplicadas
+            total_ja_no_firebase += ja_firebase
 
             # Grava só as vagas desta combinação (merge). Se o job for
             # cancelado, a rota fica com as vagas de ontem + as de hoje,

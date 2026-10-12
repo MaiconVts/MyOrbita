@@ -29,15 +29,16 @@ O LinkedIn utiliza Cloudflare e heurísticas próprias para detectar bots. O scr
 
 ---
 
-## Filtros Validados
+## Endpoint de busca (conferido em 12/10/2026)
 
-Os parâmetros de filtro do LinkedIn foram validados empiricamente — os conjuntos de vagas retornados são 100% disjuntos entre si:
+A busca usa o endpoint guest `jobs-guest/jobs/api/seeMoreJobPostings/search?keywords=...&location=Brasil&geoId=106057199&start=N`, que devolve só os cards (fragmento HTML):
 
-| Parâmetro | Valor | Resultado |
-|---|---|---|
-| `f_WT=1` | Presencial | Só vagas presenciais |
-| `f_WT=2` | Remoto | Só vagas remotas |
-| `f_WT=3` | Híbrido | Só vagas híbridas |
+- Pagina de 10 em 10 pelo `start`, até ~1000 resultados por keyword. Página cheia tem ~29 KB; o fim vem como HTTP 200 com corpo quase vazio (~26 bytes).
+- Exige `curl_cffi` com impersonate de Chrome (curl puro recebe 404) e devolve 429 de vez em quando.
+- A página `/jobs/search` parava em ~60 vagas e ignora `start` e `f_WT`. Por isso a busca não filtra modalidade: ela vem da localização de cada vaga.
+- O scraper para a keyword ao atingir o limite do JSON, numa página vazia ou depois de 2 páginas seguidas sem vaga inédita.
+
+Só páginas públicas, sem login: busca autenticada fere os termos do LinkedIn e arrisca a conta pessoal.
 
 ---
 
